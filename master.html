@@ -1590,7 +1590,7 @@ body.resizing-h {
       <div class="ms-section" style="flex:1;overflow-y:auto;">
         <div class="ms-section-title">LEADERBOARD</div>
         <table class="leaderboard-table" id="leaderboard-table">
-          <thead><tr><th>#</th><th>Student</th><th>P&L</th></tr></thead>
+          <thead><tr><th>#</th><th>Student</th><th>Equity</th></tr></thead>
           <tbody id="leaderboard-tbody">
             <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;font-size:10px;">No students yet</td></tr>
           </tbody>
@@ -2984,24 +2984,24 @@ function startLeaderboardUpdates() {
         return;
       }
 
-      // Calculate P&L for each
+      // Calculate Total Equity for each student
       const lastPrice = PriceEngine.price;
       const sorted = participants.map(p => {
         const mktVal = p.shares * lastPrice;
         const equity = parseFloat(p.cash) + mktVal;
-        const startCash = parseFloat(RoomManager.currentRoom.starting_cash);
-        const pnl = equity - startCash;
-        return { ...p, pnl, equity };
-      }).sort((a, b) => b.pnl - a.pnl);
+        return { ...p, equity };
+      }).sort((a, b) => b.equity - a.equity);
 
       let html = '';
       sorted.forEach((p, i) => {
-        const pnlClass = p.pnl >= 0 ? 'price-up' : 'price-down';
-        const pnlStr = (p.pnl >= 0 ? '+' : '') + '$' + p.pnl.toFixed(2);
+        const startCash = parseFloat(RoomManager.currentRoom.starting_cash);
+        const diff = p.equity - startCash;
+        const eqClass = diff >= 0 ? 'price-up' : 'price-down';
+        const eqStr = '$' + p.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         html += `<tr>
           <td class="rank">${i + 1}</td>
           <td class="name">${p.display_name}</td>
-          <td class="pnl ${pnlClass}">${pnlStr}</td>
+          <td class="pnl ${eqClass}">${eqStr}</td>
         </tr>`;
       });
       tbody.innerHTML = html;
