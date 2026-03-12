@@ -2948,9 +2948,11 @@ let leaderboardInterval;
 function startLeaderboardUpdates() {
   leaderboardInterval = setInterval(async () => {
     try {
-      const participants = await RoomManager.getParticipants();
+      const allParticipants = await RoomManager.getParticipants();
+      // Filter out the master — only show students
+      const participants = allParticipants.filter(p => p.user_id !== Auth.currentUser.id);
       const tbody = document.getElementById('leaderboard-tbody');
-      document.getElementById('sim-student-count').textContent = participants.length + ' students';
+      document.getElementById('sim-student-count').textContent = participants.length + ' student' + (participants.length !== 1 ? 's' : '');
 
       if (participants.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;font-size:10px;">No students yet</td></tr>';
