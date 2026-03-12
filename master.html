@@ -2087,6 +2087,7 @@ const PriceEngine = {
   price: 185.0,
   prevClose: 185.0,
   tickIndex: 0,
+  _baseTime: 0,
   candles: [],
   params: {
     ticker: 'AAPL',
@@ -2210,7 +2211,7 @@ const PriceEngine = {
     const ask = +(ohlc.close + spread / 2).toFixed(4);
 
     const candle = {
-      time: this.tickIndex,
+      time: this._baseTime + this.tickIndex * 86400,
       open: ohlc.open,
       high: ohlc.high,
       low: ohlc.low,
@@ -2326,6 +2327,9 @@ const PriceEngine = {
     this.price = this.params.initialPrice;
     this.prevClose = this.params.initialPrice;
     this.tickIndex = 0;
+    // Base time: use a fixed start date so chart X-axis works correctly
+    // Each tick = 1 day in chart time (Lightweight Charts needs ascending UNIX timestamps)
+    this._baseTime = Math.floor(new Date('2025-01-02').getTime() / 1000);
     this.candles = [];
     this._patternQueue = [];
     this._patternIndex = 0;
