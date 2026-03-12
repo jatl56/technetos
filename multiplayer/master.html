@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Technetos | Master Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="../style.css">
+<style>
+/* Master-specific styles */
+.auth-overlay {
+  position: fixed; inset: 0;
+  background: var(--bg-primary);
+  z-index: 5000;
+  display: flex; align-items: center; justify-content: center;
+}
+.auth-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  width: 380px;
+  text-align: center;
+}
+.auth-box .logo-text { font-size: 20px; display: block; margin-bottom: 4px; }
+.auth-box .subtitle { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 24px; display: block; }
+.auth-box .input-field { margin-bottom: 10px; text-align: left; }
+.auth-box .btn-primary { margin-top: 8px; }
+.auth-box .auth-toggle { font-size: 10px; color: var(--text-muted); margin-top: 12px; cursor: pointer; }
+.auth-box .auth-toggle a { color: var(--accent-orange); text-decoration: none; }
+.auth-box .auth-error { color: var(--red); font-size: 10px; margin-top: 8px; min-height: 14px; }
+.auth-box .role-note { font-size: 9px; color: var(--accent-cyan); letter-spacing: 1px; margin-bottom: 16px; display: block; }
+
+/* Lobby overlay */
+.lobby-overlay {
+  position: fixed; inset: 0;
+  background: var(--bg-primary);
+  z-index: 4000;
+  display: flex; align-items: center; justify-content: center;
+}
+.lobby-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  width: 500px;
+}
+.lobby-box h2 {
+  font-size: 16px; color: var(--accent-orange); font-weight: 700;
+  letter-spacing: 1px; margin-bottom: 20px;
+}
+.lobby-box .section-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--accent-orange);
+  margin: 16px 0 8px 0; border-bottom: 1px solid var(--border-primary); padding-bottom: 4px;
+}
+.lobby-box .btn-primary { margin-top: 16px; }
+.lobby-box .input-field { margin-bottom: 8px; }
+
+/* Room code display */
+.room-code-display {
+  font-size: 32px; font-weight: 700; letter-spacing: 8px; color: var(--accent-orange);
+  text-align: center; padding: 16px; margin: 12px 0;
+  background: var(--bg-primary); border: 2px dashed var(--accent-orange);
+  border-radius: var(--radius-lg);
+}
+.room-code-label {
+  font-size: 9px; letter-spacing: 2px; color: var(--text-muted); text-align: center; margin-bottom: 4px;
+}
+
+/* Student list in lobby */
+.student-list {
+  max-height: 200px; overflow-y: auto; margin: 12px 0;
+  background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: var(--radius-md);
+}
+.student-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid rgba(30,40,54,0.5);
+  font-size: 11px;
+}
+.student-item:last-child { border-bottom: none; }
+.student-name { color: var(--text-primary); font-weight: 600; }
+.student-status { font-size: 9px; letter-spacing: 1px; }
+.student-status.connected { color: var(--green); }
+.student-status.disconnected { color: var(--text-muted); }
+.student-count { font-size: 11px; color: var(--text-secondary); }
+
+/* Master sidebar panel */
+.master-sidebar {
+  width: 280px; background: var(--bg-panel); border-left: 1px solid var(--border-primary);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.master-sidebar .panel-header { flex-shrink: 0; }
+.ms-section {
+  padding: 8px 12px; border-bottom: 1px solid var(--border-primary);
+}
+.ms-section-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--accent-orange);
+  margin-bottom: 6px;
+}
+.ms-stat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; font-size: 11px;
+}
+.ms-stat-label { color: var(--text-muted); font-size: 9px; }
+.ms-stat-value { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Leaderboard */
+.leaderboard-table { width: 100%; border-collapse: collapse; }
+.leaderboard-table th {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.5px; color: var(--text-muted);
+  text-align: left; padding: 4px 6px; background: var(--bg-panel-alt);
+  border-bottom: 1px solid var(--border-primary);
+}
+.leaderboard-table td {
+  font-size: 10px; padding: 4px 6px; border-bottom: 1px solid rgba(30,40,54,0.3);
+  font-variant-numeric: tabular-nums;
+}
+.leaderboard-table .rank { color: var(--accent-orange); font-weight: 700; width: 20px; }
+.leaderboard-table .name { color: var(--text-primary); font-weight: 500; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+.leaderboard-table .pnl { font-weight: 600; text-align: right; }
+
+/* Override main-layout for master mode */
+.master-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  height: calc(100vh - 36px - 22px);
+  overflow: hidden;
+}
+.master-main {
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* History table */
+.history-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.history-table th {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.5px; color: var(--text-muted);
+  text-align: left; padding: 6px 8px; background: var(--bg-panel-alt);
+}
+.history-table td {
+  font-size: 10px; padding: 6px 8px; border-bottom: 1px solid rgba(30,40,54,0.3);
+  color: var(--text-primary);
+}
+.history-table tr:hover td { background: var(--bg-hover); cursor: pointer; }
+
+.btn-secondary {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 6px 14px; border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md); background: transparent; color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition); letter-spacing: 0.5px;
+}
+.btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent-orange); }
+
+.btn-danger {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 6px 14px; border: 1px solid var(--red-dim);
+  border-radius: var(--radius-md); background: transparent; color: var(--red);
+  cursor: pointer; transition: all var(--transition);
+}
+.btn-danger:hover { background: var(--red-bg); }
+
+.lobby-actions { display: flex; gap: 8px; margin-top: 16px; }
+.lobby-actions .btn-primary { flex: 1; }
+
+/* Hidden util */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-box">
+    <svg width="40" height="40" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:12px;">
+      <rect x="2" y="2" width="24" height="24" rx="3" stroke="#FF8C00" stroke-width="2"/>
+      <path d="M8 20V10l4 4 4-6v12" stroke="#FF8C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text" style="color:var(--accent-orange);">Technetos</span>
+    <span class="subtitle">THE BEST IN TOWN</span>
+    <span class="role-note">MASTER DASHBOARD</span>
+
+    <div id="auth-form">
+      <input type="text" id="auth-name" placeholder="Display Name" class="input-field" style="display:none;">
+      <input type="email" id="auth-email" placeholder="Email" class="input-field">
+      <input type="password" id="auth-password" placeholder="Password" class="input-field">
+      <button class="btn-primary" id="btn-auth" onclick="handleAuth()">SIGN IN</button>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-toggle" id="auth-toggle">
+        Don't have an account? <a onclick="toggleAuthMode()">Sign Up</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOBBY SCREEN ===== -->
+<div class="lobby-overlay hidden" id="lobby-overlay">
+  <div class="lobby-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h2 style="margin:0;">Master Dashboard</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;color:var(--text-muted);" id="lobby-user-email"></span>
+        <button class="btn-secondary" onclick="handleSignOut()" style="padding:4px 10px;font-size:9px;">SIGN OUT</button>
+      </div>
+    </div>
+
+    <!-- Create New Room -->
+    <div class="section-label">CREATE NEW SESSION</div>
+    <input type="text" id="room-name" placeholder="Session Name (e.g. Class 101 - Week 3)" class="input-field">
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">TICKER</label>
+        <select id="lobby-ticker" class="input-field" style="margin-top:2px;">
+          <option value="AAPL">AAPL</option><option value="MSFT">MSFT</option>
+          <option value="TSLA">TSLA</option><option value="AMZN">AMZN</option>
+          <option value="GOOGL">GOOGL</option><option value="NVDA">NVDA</option>
+          <option value="META">META</option><option value="JPM">JPM</option>
+          <option value="SPY">SPY</option><option value="QQQ">QQQ</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">STARTING CASH</label>
+        <input type="number" id="lobby-cash" value="100000" class="input-field" style="margin-top:2px;">
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:12px;">MARGIN &amp; SHORT SELLING</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">MAX LEVERAGE</label>
+        <select id="lobby-leverage" class="input-field" style="margin-top:2px;">
+          <option value="1">1x (No Margin)</option>
+          <option value="2" selected>2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">SHORT SELLING</label>
+        <select id="lobby-short" class="input-field" style="margin-top:2px;">
+          <option value="true" selected>Enabled</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">MAINTENANCE MARGIN</label>
+        <select id="lobby-maint-margin" class="input-field" style="margin-top:2px;">
+          <option value="0.20">20%</option>
+          <option value="0.25" selected>25%</option>
+          <option value="0.30">30%</option>
+          <option value="0.50">50%</option>
+        </select>
+      </div>
+      <div style="visibility:hidden;"></div>
+    </div>
+
+    <div class="section-label" style="margin-top:12px;">COMMISSIONS &amp; INTEREST</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">COMMISSION / SHARE</label>
+        <input type="number" id="lobby-comm-share" value="0.005" step="0.001" min="0" class="input-field" style="margin-top:2px;">
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">MIN COMMISSION</label>
+        <input type="number" id="lobby-min-comm" value="1.00" step="0.50" min="0" class="input-field" style="margin-top:2px;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">CASH INT. RATE (annual)</label>
+        <input type="number" id="lobby-cash-rate" value="2.0" step="0.5" min="0" max="20" class="input-field" style="margin-top:2px;">
+        <span style="font-size:8px;color:var(--text-muted);">%</span>
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">MARGIN INT. RATE (annual)</label>
+        <input type="number" id="lobby-margin-rate" value="8.0" step="0.5" min="0" max="30" class="input-field" style="margin-top:2px;">
+        <span style="font-size:8px;color:var(--text-muted);">%</span>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-create-room" onclick="createRoom()" style="margin-top:16px;">CREATE SESSION</button>
+
+    <!-- History -->
+    <div class="section-label" style="margin-top:24px;">SESSION HISTORY</div>
+    <div id="history-container" style="max-height:200px;overflow-y:auto;">
+      <div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WAITING ROOM (after creating, before starting) ===== -->
+<div class="lobby-overlay hidden" id="waiting-overlay">
+  <div class="lobby-box">
+    <h2 id="waiting-room-name">Session Name</h2>
+    <div class="room-code-label">SHARE THIS CODE WITH STUDENTS</div>
+    <div class="room-code-display" id="waiting-room-code">------</div>
+    
+    <div class="section-label">CONNECTED STUDENTS</div>
+    <div class="student-count" id="waiting-student-count">0 students connected</div>
+    <div class="student-list" id="waiting-student-list">
+      <div style="color:var(--text-muted);font-size:10px;padding:16px;text-align:center;">Waiting for students to join...</div>
+    </div>
+
+    <div class="lobby-actions">
+      <button class="btn-primary" id="btn-start-session" onclick="startSession()">START SESSION</button>
+      <button class="btn-danger" onclick="cancelSession()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN SIMULATION (master view) ===== -->
+<div class="hidden" id="sim-container">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="24" height="24" rx="3" stroke="#FF8C00" stroke-width="2"/>
+          <path d="M8 20V10l4 4 4-6v12" stroke="#FF8C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">Technetos</span>
+      </div>
+      <div class="topbar-ticker" id="topbar-ticker">
+        <span class="ticker-symbol" id="ticker-sym">AAPL</span>
+        <span class="ticker-price" id="ticker-price">185.00</span>
+        <span class="ticker-change" id="ticker-change">+0.00</span>
+        <span class="ticker-pct" id="ticker-pct">(0.00%)</span>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <span class="sim-badge" style="background:rgba(34,211,238,0.08);color:var(--accent-cyan);border-color:rgba(34,211,238,0.2);">MASTER</span>
+      <span class="sim-badge">SIMULATION</span>
+      <span class="room-code-badge" id="sim-room-code" style="font-size:10px;font-weight:700;color:var(--accent-orange);letter-spacing:2px;"></span>
+      <span class="topbar-time" id="topbar-time">--:--:--</span>
+    </div>
+    <div class="topbar-right">
+      <div class="speed-group">
+        <button class="speed-btn active" data-speed="1" onclick="setSpeed(1)">1x</button>
+        <button class="speed-btn" data-speed="2" onclick="setSpeed(2)">2x</button>
+        <button class="speed-btn" data-speed="5" onclick="setSpeed(5)">5x</button>
+        <button class="speed-btn" data-speed="10" onclick="setSpeed(10)">10x</button>
+      </div>
+      <div class="control-sep"></div>
+      <select id="pattern-select" class="pattern-inject-select" onchange="onPatternSelect(this.value)">
+        <option value="">-- Pattern --</option>
+        <option value="random">Random</option>
+        <option value="head_and_shoulders">Head &amp; Shoulders</option>
+        <option value="inv_head_and_shoulders">Inv. H&amp;S</option>
+        <option value="double_top">Double Top</option>
+        <option value="double_bottom">Double Bottom</option>
+        <option value="ascending_triangle">Asc. Triangle</option>
+        <option value="descending_triangle">Desc. Triangle</option>
+        <option value="bull_flag">Bull Flag</option>
+        <option value="bear_flag">Bear Flag</option>
+        <option value="cup_and_handle">Cup &amp; Handle</option>
+        <option value="rising_wedge">Rising Wedge</option>
+        <option value="falling_wedge">Falling Wedge</option>
+        <option value="symmetrical_triangle">Sym. Triangle</option>
+      </select>
+      <div class="control-sep"></div>
+      <button class="sim-control-btn" id="btn-play-pause" onclick="togglePlayPause()" title="Play/Pause">
+        <svg id="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        <svg id="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><polygon points="5,3 19,12 5,21"/></svg>
+      </button>
+      <button class="btn-danger" onclick="endSession()" style="padding:4px 10px;font-size:9px;">END</button>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT: Chart + Sidebar -->
+  <div class="master-layout">
+    <div class="master-main">
+      <div class="panel chart-panel">
+        <div class="chart-container" id="chart-container"></div>
+      </div>
+    </div>
+
+    <!-- MASTER SIDEBAR -->
+    <div class="master-sidebar">
+      <div class="panel-header">
+        <span class="panel-title">LIVE DASHBOARD</span>
+        <span class="student-count" id="sim-student-count">0</span>
+      </div>
+
+      <div class="ms-section">
+        <div class="ms-section-title">SESSION</div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Ticker</span>
+          <span class="ms-stat-value" id="ms-ticker">AAPL</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Price</span>
+          <span class="ms-stat-value" id="ms-price">$185.00</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Candles</span>
+          <span class="ms-stat-value" id="ms-candles">0</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Elapsed</span>
+          <span class="ms-stat-value" id="ms-elapsed">00:00</span>
+        </div>
+      </div>
+
+      <div class="ms-section" style="flex:1;overflow-y:auto;">
+        <div class="ms-section-title">LEADERBOARD</div>
+        <table class="leaderboard-table" id="leaderboard-table">
+          <thead><tr><th>#</th><th>Student</th><th>Equity</th></tr></thead>
+          <tbody id="leaderboard-tbody">
+            <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;font-size:10px;">No students yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ms-section">
+        <div class="ms-section-title">GBM PARAMETERS</div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Drift (μ)</span>
+          <span class="ms-stat-value" id="ms-drift">0.08</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Volatility (σ)</span>
+          <span class="ms-stat-value" id="ms-vol">0.25</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Tick Speed</span>
+          <span class="ms-stat-value" id="ms-speed">600ms</span>
+        </div>
+        <button class="btn-secondary" onclick="openSettings()" style="width:100%;margin-top:8px;">MODIFY PARAMETERS</button>
+      </div>
+
+      <div class="ms-section">
+        <div class="ms-section-title">MARGIN &amp; FEES</div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Leverage</span>
+          <span class="ms-stat-value" id="ms-leverage">2x</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Short Selling</span>
+          <span class="ms-stat-value" id="ms-short">ON</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Commission</span>
+          <span class="ms-stat-value" id="ms-commission">$0.005/sh</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Cash Rate</span>
+          <span class="ms-stat-value" id="ms-cash-rate">2.0%</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">Margin Rate</span>
+          <span class="ms-stat-value" id="ms-margin-rate">8.0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a>
+  </footer>
+</div>
+
+<!-- SETTINGS MODAL (reused from original) -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Simulation Settings</h3>
+      <span class="modal-subtitle">Live Update</span>
+      <button class="btn-icon modal-close" onclick="closeSettings()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section-title">MARKET PARAMETERS</div>
+      <div class="param-group">
+        <label>Annual Drift (μ) <span class="param-value" id="drift-val">0.08</span></label>
+        <input type="range" id="param-drift" min="-0.5" max="0.5" step="0.01" value="0.08" class="slider" oninput="document.getElementById('drift-val').textContent=this.value">
+      </div>
+      <div class="param-group">
+        <label>Annual Volatility (σ) <span class="param-value" id="vol-val">0.25</span></label>
+        <input type="range" id="param-vol" min="0.05" max="1.0" step="0.01" value="0.25" class="slider" oninput="document.getElementById('vol-val').textContent=this.value">
+      </div>
+      <div class="param-group">
+        <label>Tick Speed (ms) <span class="param-value" id="speed-val">600</span></label>
+        <input type="range" id="param-speed" min="100" max="2000" step="50" value="600" class="slider" oninput="document.getElementById('speed-val').textContent=this.value">
+      </div>
+      <div class="param-group">
+        <label>Spread (bps) <span class="param-value" id="spread-val">10</span></label>
+        <input type="range" id="param-spread" min="1" max="50" step="1" value="10" class="slider" oninput="document.getElementById('spread-val').textContent=this.value">
+      </div>
+      <button class="btn-primary" onclick="applySettings()">APPLY LIVE</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- SCRIPTS -->
+<script src="./supabase-config.js"></script>
+<script src="./auth.js"></script>
+<script src="./room-manager.js"></script>
+<script src="./price-engine.js"></script>
+<script src="./order-engine.js"></script>
+<script>
+/* =========================================================
+   MASTER CONTROLLER
+   ========================================================= */
+let authMode = 'signin';
+let chart = null;
+let candleSeries = null;
+let simInterval = null;
+let isPlaying = false;
+let speedMultiplier = 1;
+let startTime = null;
+
+/* === AUTH === */
+function toggleAuthMode() {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  const nameEl = document.getElementById('auth-name');
+  const btnEl = document.getElementById('btn-auth');
+  const toggleEl = document.getElementById('auth-toggle');
+  if (authMode === 'signup') {
+    nameEl.style.display = 'block';
+    btnEl.textContent = 'CREATE ACCOUNT';
+    toggleEl.innerHTML = 'Already have an account? <a onclick="toggleAuthMode()">Sign In</a>';
+  } else {
+    nameEl.style.display = 'none';
+    btnEl.textContent = 'SIGN IN';
+    toggleEl.innerHTML = 'Don\'t have an account? <a onclick="toggleAuthMode()">Sign Up</a>';
+  }
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'Email and password required.'; return; }
+  if (authMode === 'signup' && !name) { errEl.textContent = 'Display name required.'; return; }
+
+  try {
+    document.getElementById('btn-auth').textContent = 'LOADING...';
+    if (authMode === 'signup') {
+      await Auth.signUp(email, password, name, 'master');
+    } else {
+      await Auth.signIn(email, password);
+    }
+    showLobby();
+  } catch (e) {
+    errEl.textContent = e.message || 'Authentication failed.';
+    document.getElementById('btn-auth').textContent = authMode === 'signup' ? 'CREATE ACCOUNT' : 'SIGN IN';
+  }
+}
+
+async function handleSignOut() {
+  await Auth.signOut();
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('lobby-overlay').classList.add('hidden');
+  document.getElementById('waiting-overlay').classList.add('hidden');
+  document.getElementById('sim-container').classList.add('hidden');
+}
+
+/* === LOBBY === */
+async function showLobby() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('lobby-overlay').classList.remove('hidden');
+  document.getElementById('lobby-user-email').textContent = Auth.currentUser.email;
+  loadHistory();
+}
+
+async function loadHistory() {
+  const cont = document.getElementById('history-container');
+  try {
+    const rooms = await RoomManager.getMasterRooms();
+    if (rooms.length === 0) {
+      cont.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">No sessions yet. Create your first one above.</div>';
+      return;
+    }
+    let html = '<table class="history-table"><thead><tr><th>Name</th><th>Code</th><th>Ticker</th><th>Status</th><th>Students</th><th>Date</th></tr></thead><tbody>';
+    for (const r of rooms) {
+      const date = new Date(r.created_at).toLocaleDateString();
+      const studentCount = r.participants?.[0]?.count || 0;
+      const statusColor = r.status === 'active' ? 'var(--green)' : r.status === 'completed' ? 'var(--text-muted)' : 'var(--yellow)';
+      html += `<tr><td>${r.name}</td><td style="color:var(--accent-orange);font-weight:700;letter-spacing:1px;">${r.code}</td><td>${r.ticker}</td><td style="color:${statusColor};text-transform:uppercase;font-weight:600;">${r.status}</td><td>${studentCount}</td><td>${date}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = '<div style="color:var(--red);font-size:10px;padding:12px;">' + e.message + '</div>';
+  }
+}
+
+/* === CREATE ROOM === */
+async function createRoom() {
+  const name = document.getElementById('room-name').value.trim();
+  if (!name) { showToast('Enter a session name.', 'error'); return; }
+
+  const ticker = document.getElementById('lobby-ticker').value;
+  const cash = parseFloat(document.getElementById('lobby-cash').value) || 100000;
+  const maxLeverage = parseFloat(document.getElementById('lobby-leverage').value) || 2;
+  const shortEnabled = document.getElementById('lobby-short').value === 'true';
+  const maintMargin = parseFloat(document.getElementById('lobby-maint-margin').value) || 0.25;
+  const commPerShare = parseFloat(document.getElementById('lobby-comm-share').value) || 0.005;
+  const minComm = parseFloat(document.getElementById('lobby-min-comm').value) || 1.00;
+  const cashRate = (parseFloat(document.getElementById('lobby-cash-rate').value) || 2.0) / 100;
+  const marginRate = (parseFloat(document.getElementById('lobby-margin-rate').value) || 8.0) / 100;
+
+  try {
+    document.getElementById('btn-create-room').textContent = 'CREATING...';
+    await RoomManager.createRoom(name, {
+      ticker,
+      startingCash: cash,
+      maxLeverage,
+      shortSellingEnabled: shortEnabled,
+      maintenanceMargin: maintMargin,
+      commissionPerShare: commPerShare,
+      minCommission: minComm,
+      cashInterestRate: cashRate,
+      marginInterestRate: marginRate
+    });
+    showWaitingRoom();
+  } catch (e) {
+    showToast(e.message, 'error');
+    document.getElementById('btn-create-room').textContent = 'CREATE SESSION';
+  }
+}
+
+/* === WAITING ROOM === */
+var waitingPollInterval = null;
+function showWaitingRoom() {
+  document.getElementById('lobby-overlay').classList.add('hidden');
+  document.getElementById('waiting-overlay').classList.remove('hidden');
+  document.getElementById('waiting-room-name').textContent = RoomManager.currentRoom.name;
+  document.getElementById('waiting-room-code').textContent = RoomManager.currentRoom.code;
+
+  // Subscribe to participant changes (Realtime)
+  RoomManager.subscribeToParticipants(RoomManager.currentRoom.id, () => {
+    refreshWaitingStudents();
+  });
+  // Polling fallback every 3s
+  waitingPollInterval = setInterval(() => refreshWaitingStudents(), 3000);
+  refreshWaitingStudents();
+}
+
+async function refreshWaitingStudents() {
+  const participants = await RoomManager.getParticipants();
+  const countEl = document.getElementById('waiting-student-count');
+  const listEl = document.getElementById('waiting-student-list');
+  countEl.textContent = participants.length + ' student' + (participants.length !== 1 ? 's' : '') + ' connected';
+
+  if (participants.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:16px;text-align:center;">Waiting for students to join...</div>';
+    return;
+  }
+
+  let html = '';
+  for (const p of participants) {
+    html += `<div class="student-item">
+      <span class="student-name">${p.display_name}</span>
+      <span class="student-status ${p.is_connected ? 'connected' : 'disconnected'}">${p.is_connected ? 'CONNECTED' : 'OFFLINE'}</span>
+    </div>`;
+  }
+  listEl.innerHTML = html;
+}
+
+async function cancelSession() {
+  if (waitingPollInterval) clearInterval(waitingPollInterval);
+  RoomManager.unsubscribeAll();
+  if (RoomManager.currentRoom) {
+    await RoomManager.completeRoom();
+  }
+  RoomManager.currentRoom = null;
+  document.getElementById('waiting-overlay').classList.add('hidden');
+  document.getElementById('lobby-overlay').classList.remove('hidden');
+  loadHistory();
+}
+
+/* === START SIMULATION === */
+async function startSession() {
+  if (waitingPollInterval) clearInterval(waitingPollInterval);
+  try {
+    await RoomManager.startRoom();
+    RoomManager.initBroadcast(RoomManager.currentRoom.id);
+    
+    document.getElementById('waiting-overlay').classList.add('hidden');
+    document.getElementById('sim-container').classList.remove('hidden');
+
+    // Init price engine
+    PriceEngine.reset({
+      ticker: RoomManager.currentRoom.ticker,
+      initialPrice: parseFloat(RoomManager.currentRoom.initial_price),
+      drift: parseFloat(RoomManager.currentRoom.drift),
+      volatility: parseFloat(RoomManager.currentRoom.volatility),
+      tickSpeedMs: RoomManager.currentRoom.tick_speed_ms,
+      spreadBps: RoomManager.currentRoom.spread_bps
+    });
+
+    // Init order engine params
+    OrderEngine.initParams(RoomManager.currentRoom);
+
+    // Update UI
+    document.getElementById('sim-room-code').textContent = 'CODE: ' + RoomManager.currentRoom.code;
+    document.getElementById('ticker-sym').textContent = RoomManager.currentRoom.ticker;
+    document.getElementById('ms-ticker').textContent = RoomManager.currentRoom.ticker;
+    document.getElementById('ms-drift').textContent = PriceEngine.params.drift;
+    document.getElementById('ms-vol').textContent = PriceEngine.params.volatility;
+    document.getElementById('ms-speed').textContent = PriceEngine.params.tickSpeedMs + 'ms';
+    // Margin & fees sidebar
+    const sp = OrderEngine.sessionParams;
+    document.getElementById('ms-leverage').textContent = sp.maxLeverage + 'x';
+    document.getElementById('ms-short').textContent = sp.shortSellingEnabled ? 'ON' : 'OFF';
+    document.getElementById('ms-commission').textContent = '$' + sp.commissionPerShare + '/sh';
+    document.getElementById('ms-cash-rate').textContent = (sp.cashInterestRate * 100).toFixed(1) + '%';
+    document.getElementById('ms-margin-rate').textContent = (sp.marginInterestRate * 100).toFixed(1) + '%';
+
+    initChart();
+    startSimulation();
+    startTime = Date.now();
+    updateElapsed();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+/* === CHART === */
+function initChart() {
+  const container = document.getElementById('chart-container');
+  chart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'Solid', color: '#0a0e17' },
+      textColor: '#8b9dc3',
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 10
+    },
+    grid: {
+      vertLines: { color: 'rgba(30, 40, 54, 0.5)' },
+      horzLines: { color: 'rgba(30, 40, 54, 0.5)' }
+    },
+    crosshair: { mode: 0 },
+    rightPriceScale: {
+      borderColor: '#1e2836',
+      scaleMargins: { top: 0.05, bottom: 0.05 }
+    },
+    timeScale: { borderColor: '#1e2836', timeVisible: true, secondsVisible: false, rightOffset: 5 }
+  });
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00c853', downColor: '#ff3d57',
+    borderUpColor: '#00c853', borderDownColor: '#ff3d57',
+    wickUpColor: '#00c853', wickDownColor: '#ff3d57'
+  });
+
+  // Resize
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  }).observe(container);
+}
+
+/* === SIMULATION LOOP === */
+function startSimulation() {
+  isPlaying = true;
+  const baseSpeed = PriceEngine.params.tickSpeedMs;
+  
+  function tick() {
+    if (!isPlaying) return;
+    
+    const candle = PriceEngine.nextCandle();
+    
+    // Update chart
+    candleSeries.update(candle);
+    
+    // Update top bar
+    document.getElementById('ticker-price').textContent = candle.close.toFixed(2);
+    const change = candle.close - PriceEngine.params.initialPrice;
+    const changePct = (change / PriceEngine.params.initialPrice) * 100;
+    document.getElementById('ticker-change').textContent = (change >= 0 ? '+' : '') + change.toFixed(2);
+    document.getElementById('ticker-change').className = 'ticker-change ' + (change >= 0 ? 'price-up' : 'price-down');
+    document.getElementById('ticker-pct').textContent = '(' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%)';
+    document.getElementById('ticker-pct').className = 'ticker-pct ' + (changePct >= 0 ? 'price-up' : 'price-down');
+    
+    // Update sidebar stats
+    document.getElementById('ms-price').textContent = '$' + candle.close.toFixed(2);
+    document.getElementById('ms-candles').textContent = PriceEngine.tickIndex;
+
+    // Broadcast to students
+    RoomManager.broadcastPriceTick(candle);
+
+    // Schedule next
+    simInterval = setTimeout(tick, baseSpeed / speedMultiplier);
+  }
+
+  document.getElementById('icon-pause').style.display = '';
+  document.getElementById('icon-play').style.display = 'none';
+  tick();
+}
+
+function togglePlayPause() {
+  if (isPlaying) {
+    isPlaying = false;
+    clearTimeout(simInterval);
+    document.getElementById('icon-pause').style.display = 'none';
+    document.getElementById('icon-play').style.display = '';
+    RoomManager.broadcastControl('pause');
+    RoomManager.pauseRoom();
+  } else {
+    RoomManager.resumeRoom();
+    RoomManager.broadcastControl('resume');
+    startSimulation();
+  }
+}
+
+function setSpeed(s) {
+  speedMultiplier = s;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.speed) === s));
+  if (isPlaying) {
+    clearTimeout(simInterval);
+    startSimulation();
+  }
+}
+
+function onPatternSelect(val) {
+  PriceEngine.params.selectedPattern = val || null;
+  RoomManager.broadcastParamChange({ selectedPattern: val || null });
+}
+
+/* === SETTINGS === */
+function openSettings() {
+  document.getElementById('param-drift').value = PriceEngine.params.drift;
+  document.getElementById('drift-val').textContent = PriceEngine.params.drift;
+  document.getElementById('param-vol').value = PriceEngine.params.volatility;
+  document.getElementById('vol-val').textContent = PriceEngine.params.volatility;
+  document.getElementById('param-speed').value = PriceEngine.params.tickSpeedMs;
+  document.getElementById('speed-val').textContent = PriceEngine.params.tickSpeedMs;
+  document.getElementById('param-spread').value = PriceEngine.params.spreadBps;
+  document.getElementById('spread-val').textContent = PriceEngine.params.spreadBps;
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+
+function applySettings() {
+  const newParams = {
+    drift: parseFloat(document.getElementById('param-drift').value),
+    volatility: parseFloat(document.getElementById('param-vol').value),
+    tickSpeedMs: parseInt(document.getElementById('param-speed').value),
+    spreadBps: parseInt(document.getElementById('param-spread').value)
+  };
+  PriceEngine.updateParams(newParams);
+  
+  // Update sidebar
+  document.getElementById('ms-drift').textContent = newParams.drift;
+  document.getElementById('ms-vol').textContent = newParams.volatility;
+  document.getElementById('ms-speed').textContent = newParams.tickSpeedMs + 'ms';
+
+  // Broadcast to students
+  RoomManager.broadcastParamChange(newParams);
+
+  // Save to DB
+  RoomManager.updateRoom({
+    drift: newParams.drift,
+    volatility: newParams.volatility,
+    tick_speed_ms: newParams.tickSpeedMs,
+    spread_bps: newParams.spreadBps
+  });
+
+  // Restart sim with new speed
+  if (isPlaying) {
+    clearTimeout(simInterval);
+    startSimulation();
+  }
+
+  closeSettings();
+  showToast('Parameters updated live.', 'info');
+}
+
+/* === END SESSION === */
+async function endSession() {
+  if (!confirm('End this session? Students will be disconnected.')) return;
+  isPlaying = false;
+  clearTimeout(simInterval);
+  RoomManager.broadcastControl('end');
+  await RoomManager.completeRoom();
+  RoomManager.unsubscribeAll();
+
+  document.getElementById('sim-container').classList.add('hidden');
+  document.getElementById('lobby-overlay').classList.remove('hidden');
+  loadHistory();
+  showToast('Session ended.', 'info');
+}
+
+/* === LEADERBOARD UPDATE (periodic) === */
+let leaderboardInterval;
+function startLeaderboardUpdates() {
+  leaderboardInterval = setInterval(async () => {
+    try {
+      const allParticipants = await RoomManager.getParticipants();
+      // Filter out the master — only show students
+      const participants = allParticipants.filter(p => p.user_id !== Auth.currentUser.id);
+      const tbody = document.getElementById('leaderboard-tbody');
+      document.getElementById('sim-student-count').textContent = participants.length + ' student' + (participants.length !== 1 ? 's' : '');
+
+      if (participants.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:16px;font-size:10px;">No students yet</td></tr>';
+        return;
+      }
+
+      // Calculate Total Equity for each student (long + short positions)
+      const lastPrice = PriceEngine.price;
+      const sorted = participants.map(p => {
+        const longValue = (p.shares || 0) * lastPrice;
+        const shortLiability = (p.short_shares || 0) * lastPrice;
+        const equity = parseFloat(p.cash) + longValue - shortLiability;
+        return { ...p, equity };
+      }).sort((a, b) => b.equity - a.equity);
+
+      let html = '';
+      sorted.forEach((p, i) => {
+        const startCash = parseFloat(RoomManager.currentRoom.starting_cash);
+        const diff = p.equity - startCash;
+        const eqClass = diff >= 0 ? 'price-up' : 'price-down';
+        const eqStr = '$' + p.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        html += `<tr>
+          <td class="rank">${i + 1}</td>
+          <td class="name">${p.display_name}</td>
+          <td class="pnl ${eqClass}">${eqStr}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    } catch (e) { /* silent */ }
+  }, 3000);
+}
+
+/* === ELAPSED TIMER === */
+function updateElapsed() {
+  if (!startTime) return;
+  const elapsed = Date.now() - startTime;
+  const mins = Math.floor(elapsed / 60000);
+  const secs = Math.floor((elapsed % 60000) / 1000);
+  document.getElementById('ms-elapsed').textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  document.getElementById('topbar-time').textContent = new Date().toLocaleTimeString();
+  requestAnimationFrame(updateElapsed);
+}
+
+/* === TOAST === */
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* === INIT === */
+(async function init() {
+  try {
+    const hasSession = await Auth.init();
+    if (hasSession) {
+      showLobby();
+    }
+  } catch (e) {
+    console.error('Init error:', e);
+  }
+
+  // Start leaderboard updates when sim is visible
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById('sim-container').classList.contains('hidden')) {
+      startLeaderboardUpdates();
+    } else {
+      clearInterval(leaderboardInterval);
+    }
+  });
+  observer.observe(document.getElementById('sim-container'), { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+</body>
+</html>
