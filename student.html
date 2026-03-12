@@ -2188,14 +2188,35 @@ const OrderEngine = {
     return fill;
   },
 
-  /** Update participant portfolio in DB */
+  /** Update participant portfolio in DB (with retry) */
+  _pendingSync: null,
   async updateParticipant(participantId, updates) {
-    const sb = getSupabase();
-    const { error } = await sb
-      .from('participants')
-      .update(updates)
-      .eq('id', participantId);
-    if (error) console.error('Participant update error:', error);
+    // Debounce: store latest state and sync periodically
+    this._pendingSync = { participantId, updates };
+    if (this._syncTimer) return; // already scheduled
+    this._syncTimer = setTimeout(() => this._flushSync(), 1500);
+  },
+
+  async _flushSync() {
+    this._syncTimer = null;
+    if (!this._pendingSync) return;
+    const { participantId, updates } = this._pendingSync;
+    this._pendingSync = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const sb = getSupabase();
+        const { error } = await sb
+          .from('participants')
+          .update(updates)
+          .eq('id', participantId);
+        if (!error) return; // success
+        console.warn('Participant sync attempt', attempt + 1, 'failed:', error.message);
+      } catch (e) {
+        console.warn('Participant sync attempt', attempt + 1, 'exception:', e.message);
+      }
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // backoff
+    }
+    console.error('Participant sync failed after 3 attempts');
   },
 
   /** Save session metrics at end */
@@ -2408,6 +2429,18 @@ function startStudentSim() {
   setInterval(() => {
     document.getElementById('topbar-time').textContent = new Date().toLocaleTimeString();
   }, 1000);
+
+  // Periodic portfolio sync to DB (every 5 seconds)
+  setInterval(() => {
+    if (RoomManager.currentParticipant) {
+      OrderEngine.updateParticipant(RoomManager.currentParticipant.id, {
+        cash: portfolio.cash,
+        shares: portfolio.shares,
+        avg_cost: portfolio.avgCost,
+        realized_pnl: portfolio.realizedPnl
+      });
+    }
+  }, 5000);
 }
 
 /* === CHART === */
