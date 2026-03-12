@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Technetos | Student Trading</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="../style.css">
+<style>
+/* Student-specific styles (auth overlay, join screen, etc) */
+.auth-overlay {
+  position: fixed; inset: 0; background: var(--bg-primary); z-index: 5000;
+  display: flex; align-items: center; justify-content: center;
+}
+.auth-box {
+  background: var(--bg-panel); border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg); padding: 32px; width: 380px; text-align: center;
+}
+.auth-box .logo-text { font-size: 20px; display: block; margin-bottom: 4px; }
+.auth-box .subtitle { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 24px; display: block; }
+.auth-box .input-field { margin-bottom: 10px; text-align: left; }
+.auth-box .btn-primary { margin-top: 8px; }
+.auth-box .auth-toggle { font-size: 10px; color: var(--text-muted); margin-top: 12px; cursor: pointer; }
+.auth-box .auth-toggle a { color: var(--accent-orange); text-decoration: none; }
+.auth-box .auth-error { color: var(--red); font-size: 10px; margin-top: 8px; min-height: 14px; }
+
+.join-overlay {
+  position: fixed; inset: 0; background: var(--bg-primary); z-index: 4000;
+  display: flex; align-items: center; justify-content: center;
+}
+.join-box {
+  background: var(--bg-panel); border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg); padding: 32px; width: 440px;
+}
+.join-box h2 {
+  font-size: 16px; color: var(--accent-orange); font-weight: 700;
+  letter-spacing: 1px; margin-bottom: 4px;
+}
+.section-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--accent-orange);
+  margin: 16px 0 8px 0; border-bottom: 1px solid var(--border-primary); padding-bottom: 4px;
+}
+.code-input {
+  font-family: var(--font-mono); font-size: 28px; font-weight: 700;
+  text-align: center; letter-spacing: 8px; text-transform: uppercase;
+  color: var(--accent-orange); background: var(--bg-primary);
+  border: 2px solid var(--border-accent); border-radius: var(--radius-lg);
+  padding: 16px; width: 100%;
+}
+.code-input:focus { border-color: var(--accent-orange); outline: none; box-shadow: 0 0 0 2px rgba(255,140,0,0.2); }
+.code-input::placeholder { color: var(--text-muted); font-size: 14px; letter-spacing: 4px; }
+
+/* Session history */
+.history-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.history-table th {
+  font-size: 8px; font-weight: 700; letter-spacing: 0.5px; color: var(--text-muted);
+  text-align: left; padding: 6px 8px; background: var(--bg-panel-alt);
+}
+.history-table td {
+  font-size: 10px; padding: 6px 8px; border-bottom: 1px solid rgba(30,40,54,0.3);
+  color: var(--text-primary);
+}
+
+.btn-secondary {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  padding: 6px 14px; border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md); background: transparent; color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition);
+}
+.btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent-orange); }
+
+/* Waiting badge */
+.waiting-badge {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  background: var(--bg-panel); border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg); padding: 32px; text-align: center; z-index: 3000;
+}
+.waiting-badge h3 { color: var(--accent-orange); font-size: 14px; margin-bottom: 8px; }
+.waiting-badge p { color: var(--text-muted); font-size: 11px; }
+.pulse-dot {
+  display: inline-block; width: 8px; height: 8px; background: var(--green);
+  border-radius: 50%; margin-right: 6px; animation: pulse-anim 1.5s ease-in-out infinite;
+}
+@keyframes pulse-anim { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+
+.hidden { display: none !important; }
+
+/* Short/Cover button styles */
+.side-btn.short { background: rgba(255,61,87,0.08); color: var(--red); border-color: rgba(255,61,87,0.2); font-size: 9px; }
+.side-btn.short.active { background: var(--red); color: #fff; }
+.side-btn.cover { background: rgba(0,200,83,0.08); color: var(--green); border-color: rgba(0,200,83,0.2); font-size: 9px; }
+.side-btn.cover.active { background: var(--green); color: #fff; }
+
+/* Responsive for mobile (PWA-friendly) */
+@media (max-width: 768px) {
+  .main-layout { grid-template-columns: 1fr !important; }
+  .left-panel { max-height: 280px; }
+  .resizer-v { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-box">
+    <svg width="40" height="40" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:12px;">
+      <rect x="2" y="2" width="24" height="24" rx="3" stroke="#FF8C00" stroke-width="2"/>
+      <path d="M8 20V10l4 4 4-6v12" stroke="#FF8C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="logo-text" style="color:var(--accent-orange);">Technetos</span>
+    <span class="subtitle">THE BEST IN TOWN</span>
+
+    <div id="auth-form">
+      <input type="text" id="auth-name" placeholder="Display Name" class="input-field" style="display:none;">
+      <input type="email" id="auth-email" placeholder="Email" class="input-field">
+      <input type="password" id="auth-password" placeholder="Password" class="input-field">
+      <button class="btn-primary" id="btn-auth" onclick="handleAuth()">SIGN IN</button>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-toggle" id="auth-toggle">
+        Don't have an account? <a onclick="toggleAuthMode()">Sign Up</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== JOIN SCREEN ===== -->
+<div class="join-overlay hidden" id="join-overlay">
+  <div class="join-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h2 style="margin:0;">Student Trading</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;color:var(--text-muted);" id="join-user-email"></span>
+        <button class="btn-secondary" onclick="handleSignOut()" style="padding:4px 10px;font-size:9px;">SIGN OUT</button>
+      </div>
+    </div>
+
+    <div class="section-label">JOIN A SESSION</div>
+    <input type="text" id="room-code-input" class="code-input" placeholder="ENTER CODE" maxlength="6">
+    <button class="btn-primary" style="width:100%;margin-top:12px;" id="btn-join" onclick="joinRoom()">JOIN SESSION</button>
+    <div class="auth-error" id="join-error" style="text-align:center;"></div>
+
+    <div class="section-label" style="margin-top:24px;">SESSION HISTORY</div>
+    <div id="student-history" style="max-height:200px;overflow-y:auto;">
+      <div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WAITING FOR SESSION START ===== -->
+<div class="waiting-badge hidden" id="waiting-badge">
+  <h3><span class="pulse-dot"></span>Waiting for Professor</h3>
+  <p>Session: <span id="waiting-session-name"></span></p>
+  <p style="margin-top:8px;">The simulation will start when your professor begins the session.</p>
+</div>
+
+<!-- ===== MAIN SIMULATION (student view) ===== -->
+<div class="hidden" id="sim-container">
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="24" height="24" rx="3" stroke="#FF8C00" stroke-width="2"/>
+          <path d="M8 20V10l4 4 4-6v12" stroke="#FF8C00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">Technetos</span>
+      </div>
+      <div class="topbar-ticker">
+        <span class="ticker-symbol" id="ticker-sym">AAPL</span>
+        <span class="ticker-price" id="ticker-price">185.00</span>
+        <span class="ticker-change" id="ticker-change">+0.00</span>
+        <span class="ticker-pct" id="ticker-pct">(0.00%)</span>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <span class="sim-badge">SIMULATION</span>
+      <span class="topbar-time" id="topbar-time">--:--:--</span>
+    </div>
+    <div class="topbar-right">
+      <span style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;" id="sim-user-name"></span>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT: same as original simulator -->
+  <div class="main-layout">
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <!-- ORDER ENTRY -->
+      <div class="panel order-panel">
+        <div class="panel-header">
+          <span class="panel-title">ORDER ENTRY</span>
+          <div class="order-side-toggle">
+            <button class="side-btn active buy" id="btn-buy" onclick="setSide('BUY')">BUY</button>
+            <button class="side-btn sell" id="btn-sell" onclick="setSide('SELL')">SELL</button>
+            <button class="side-btn short" id="btn-short" onclick="setSide('SHORT_SELL')" style="display:none;">SHORT</button>
+            <button class="side-btn cover" id="btn-cover" onclick="setSide('BUY_TO_COVER')" style="display:none;">COVER</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="bid-ask-strip">
+            <div class="ba-cell bid"><span class="ba-label">BID</span><span class="ba-price" id="bid-price">--</span></div>
+            <div class="ba-cell spread-cell"><span class="ba-label">SPREAD</span><span class="ba-price" id="spread-display">--</span></div>
+            <div class="ba-cell ask"><span class="ba-label">ASK</span><span class="ba-price" id="ask-price">--</span></div>
+          </div>
+
+          <div class="form-row">
+            <label>TYPE</label>
+            <div class="order-type-grid">
+              <button class="type-btn active" data-type="MARKET" onclick="setOrderType('MARKET')">MKT</button>
+              <button class="type-btn" data-type="LIMIT" onclick="setOrderType('LIMIT')">LMT</button>
+              <button class="type-btn" data-type="STOP" onclick="setOrderType('STOP')">STP</button>
+              <button class="type-btn" data-type="STOP_LIMIT" onclick="setOrderType('STOP_LIMIT')">S-LMT</button>
+              <button class="type-btn" data-type="TRAILING" onclick="setOrderType('TRAILING')">TRAIL</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>QTY</label>
+            <div class="qty-input-group">
+              <button class="qty-btn" onclick="adjustQty(-100)">-100</button>
+              <button class="qty-btn" onclick="adjustQty(-10)">-10</button>
+              <input type="number" id="order-qty" value="100" min="1" max="99999" class="input-field qty-field">
+              <button class="qty-btn" onclick="adjustQty(10)">+10</button>
+              <button class="qty-btn" onclick="adjustQty(100)">+100</button>
+            </div>
+          </div>
+
+          <div class="form-row price-row" id="limit-price-row" style="display:none;">
+            <label>LIMIT PX</label>
+            <input type="number" id="order-limit-price" step="0.01" class="input-field">
+          </div>
+          <div class="form-row price-row" id="stop-price-row" style="display:none;">
+            <label>STOP PX</label>
+            <input type="number" id="order-stop-price" step="0.01" class="input-field">
+          </div>
+          <div class="form-row price-row" id="trail-row" style="display:none;">
+            <label>TRAIL $</label>
+            <input type="number" id="order-trail-amount" step="0.01" value="1.00" class="input-field">
+          </div>
+
+          <div class="form-row">
+            <label>TIF</label>
+            <select id="order-tif" class="input-field">
+              <option value="GTC">GTC</option><option value="DAY">DAY</option><option value="IOC">IOC</option>
+            </select>
+          </div>
+
+          <div class="order-value-strip">
+            <span class="ov-label">EST. VALUE</span>
+            <span class="ov-amount" id="order-est-value">$0.00</span>
+          </div>
+
+          <button class="btn-submit-order buy-order" id="btn-submit-order" onclick="submitOrder()">
+            <span id="submit-text">BUY 100 MKT</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ACCOUNT SUMMARY -->
+      <div class="panel account-panel">
+        <div class="panel-header"><span class="panel-title">ACCOUNT</span></div>
+        <div class="panel-body">
+          <div class="account-grid">
+            <div class="acct-item"><span class="acct-label">Cash</span><span class="acct-value" id="acct-cash">$100,000.00</span></div>
+            <div class="acct-item"><span class="acct-label">Buying Power</span><span class="acct-value" id="acct-buying-power" style="color:var(--accent-cyan);">$200,000.00</span></div>
+            <div class="acct-item"><span class="acct-label">Long Mkt Val</span><span class="acct-value" id="acct-mktval">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Short Mkt Val</span><span class="acct-value" id="acct-short-mktval">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Total Equity</span><span class="acct-value highlight" id="acct-equity">$100,000.00</span></div>
+            <div class="acct-item"><span class="acct-label">Margin Used</span><span class="acct-value" id="acct-margin-used">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Unrealized P&L</span><span class="acct-value" id="acct-unreal-pnl">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Realized P&L</span><span class="acct-value" id="acct-real-pnl">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Total P&L</span><span class="acct-value highlight" id="acct-total-pnl">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Commissions</span><span class="acct-value" id="acct-commissions" style="color:var(--red);">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Interest Earned</span><span class="acct-value" id="acct-interest-earned" style="color:var(--green);">$0.00</span></div>
+            <div class="acct-item"><span class="acct-label">Margin Interest</span><span class="acct-value" id="acct-margin-interest" style="color:var(--red);">$0.00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VERTICAL RESIZER -->
+    <div class="resizer-v" id="v-divider"></div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="panel chart-panel">
+        <div class="panel-header chart-header">
+          <span class="panel-title" id="chart-title">AAPL</span>
+        </div>
+        <div class="chart-container" id="chart-container"></div>
+      </div>
+
+      <div class="resizer-h" id="h-divider"></div>
+
+      <div class="panel bottom-panel">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="positions" onclick="switchTab('positions')">POSITIONS</button>
+          <button class="tab-btn" data-tab="orders" onclick="switchTab('orders')">WORKING ORDERS</button>
+          <button class="tab-btn" data-tab="executions" onclick="switchTab('executions')">EXECUTIONS</button>
+        </div>
+        <div class="tab-content" id="tab-positions" style="display:block;">
+          <table class="data-table">
+            <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Avg Price</th><th>Last</th><th>Mkt Value</th><th>Unreal P&L</th><th>% Chg</th></tr></thead>
+            <tbody id="positions-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="positions-empty">No open positions</div>
+        </div>
+        <div class="tab-content" id="tab-orders" style="display:none;">
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Side</th><th>Type</th><th>Qty</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="orders-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="orders-empty">No working orders</div>
+        </div>
+        <div class="tab-content" id="tab-executions" style="display:none;">
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Side</th><th>Type</th><th>Qty</th><th>Fill Price</th><th>Value</th></tr></thead>
+            <tbody id="executions-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="executions-empty">No executions yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a>
+  </footer>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- SCRIPTS -->
+<script src="./supabase-config.js"></script>
+<script src="./auth.js"></script>
+<script src="./room-manager.js"></script>
+<script src="./order-engine.js"></script>
+<script>
+/* =========================================================
+   STUDENT CONTROLLER
+   ========================================================= */
+let authMode = 'signin';
+let chart = null;
+let candleSeries = null;
+let currentSide = 'BUY';
+let currentOrderType = 'MARKET';
+let lastTick = null;
+let initialPrice = 185;
+
+// Local portfolio state
+let portfolio = {
+  cash: 100000,
+  shares: 0,
+  avgCost: 0,
+  shortShares: 0,
+  shortAvgCost: 0,
+  realizedPnl: 0,
+  totalCommissions: 0,
+  accruedCashInterest: 0,
+  accruedMarginInterest: 0,
+  orders: [],     // working orders (local)
+  executions: []  // fills (local)
+};
+
+/* === AUTH === */
+function toggleAuthMode() {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('auth-name').style.display = authMode === 'signup' ? 'block' : 'none';
+  document.getElementById('btn-auth').textContent = authMode === 'signup' ? 'CREATE ACCOUNT' : 'SIGN IN';
+  document.getElementById('auth-toggle').innerHTML = authMode === 'signup'
+    ? 'Already have an account? <a onclick="toggleAuthMode()">Sign In</a>'
+    : 'Don\'t have an account? <a onclick="toggleAuthMode()">Sign Up</a>';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Email and password required.'; return; }
+  if (authMode === 'signup' && !name) { errEl.textContent = 'Display name required.'; return; }
+  try {
+    document.getElementById('btn-auth').textContent = 'LOADING...';
+    if (authMode === 'signup') {
+      await Auth.signUp(email, password, name, 'student');
+    } else {
+      await Auth.signIn(email, password);
+    }
+    showJoinScreen();
+  } catch (e) {
+    errEl.textContent = e.message || 'Authentication failed.';
+    document.getElementById('btn-auth').textContent = authMode === 'signup' ? 'CREATE ACCOUNT' : 'SIGN IN';
+  }
+}
+
+async function handleSignOut() {
+  await Auth.signOut();
+  RoomManager.unsubscribeAll();
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('join-overlay').classList.add('hidden');
+  document.getElementById('waiting-badge').classList.add('hidden');
+  document.getElementById('sim-container').classList.add('hidden');
+}
+
+/* === JOIN SCREEN === */
+function showJoinScreen() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('join-overlay').classList.remove('hidden');
+  document.getElementById('join-user-email').textContent = Auth.currentUser.email;
+  loadStudentHistory();
+}
+
+async function loadStudentHistory() {
+  const cont = document.getElementById('student-history');
+  try {
+    const history = await RoomManager.getStudentHistory();
+    if (history.length === 0) {
+      cont.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">No sessions yet. Enter a room code above.</div>';
+      return;
+    }
+    let html = '<table class="history-table"><thead><tr><th>Session</th><th>Ticker</th><th>P&L</th><th>Status</th></tr></thead><tbody>';
+    for (const h of history) {
+      const pnl = h.session_metrics?.[0]?.total_pnl;
+      const pnlStr = pnl != null ? (pnl >= 0 ? '+' : '') + '$' + parseFloat(pnl).toFixed(2) : '--';
+      const pnlClass = pnl != null ? (pnl >= 0 ? 'price-up' : 'price-down') : '';
+      html += `<tr><td>${h.rooms?.name || '--'}</td><td>${h.rooms?.ticker || '--'}</td><td class="${pnlClass}">${pnlStr}</td><td style="text-transform:uppercase;">${h.rooms?.status || '--'}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = '<div style="color:var(--red);font-size:10px;padding:12px;">' + e.message + '</div>';
+  }
+}
+
+/* === JOIN ROOM === */
+async function joinRoom() {
+  const code = document.getElementById('room-code-input').value.trim();
+  const errEl = document.getElementById('join-error');
+  errEl.textContent = '';
+  if (!code || code.length < 4) { errEl.textContent = 'Enter a valid room code.'; return; }
+
+  try {
+    document.getElementById('btn-join').textContent = 'JOINING...';
+    const result = await RoomManager.joinRoom(code);
+    
+    // Set portfolio cash
+    portfolio.cash = parseFloat(result.room.starting_cash);
+    initialPrice = parseFloat(result.room.initial_price);
+
+    if (result.room.status === 'waiting') {
+      // Show waiting screen
+      document.getElementById('join-overlay').classList.add('hidden');
+      document.getElementById('waiting-badge').classList.remove('hidden');
+      document.getElementById('waiting-session-name').textContent = result.room.name;
+      
+      // Listen for room status changes (start)
+      waitForStart(result.room.id);
+    } else if (result.room.status === 'active') {
+      startStudentSim();
+    } else if (result.room.status === 'paused') {
+      startStudentSim();
+      showToast('Session is currently paused.', 'info');
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+    document.getElementById('btn-join').textContent = 'JOIN SESSION';
+  }
+}
+
+function waitForStart(roomId) {
+  // Use polling as primary (Realtime postgres_changes can be unreliable)
+  var pollInterval = setInterval(async () => {
+    try {
+      const sb = getSupabase();
+      const { data } = await sb.from('rooms').select('*').eq('id', roomId).single();
+      if (data && data.status === 'active') {
+        clearInterval(pollInterval);
+        RoomManager.currentRoom = data;
+        startStudentSim();
+      }
+    } catch (e) { /* silent */ }
+  }, 2000);
+
+  // Also try Realtime as bonus
+  const sb = getSupabase();
+  const ch = sb.channel('room_status_' + roomId)
+    .on('postgres_changes', 
+      { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+      (payload) => {
+        if (payload.new.status === 'active') {
+          clearInterval(pollInterval);
+          sb.removeChannel(ch);
+          RoomManager.currentRoom = payload.new;
+          startStudentSim();
+        }
+      }
+    )
+    .subscribe();
+}
+
+/* === START SIMULATION === */
+function startStudentSim() {
+  document.getElementById('join-overlay').classList.add('hidden');
+  document.getElementById('waiting-badge').classList.add('hidden');
+  document.getElementById('sim-container').classList.remove('hidden');
+
+  const room = RoomManager.currentRoom;
+  document.getElementById('ticker-sym').textContent = room.ticker;
+  document.getElementById('chart-title').textContent = room.ticker;
+  document.getElementById('sim-user-name').textContent = Auth.getDisplayName();
+  
+  // Init order engine with room params
+  OrderEngine.initParams(room);
+
+  // Show SHORT/COVER buttons if short selling enabled
+  if (OrderEngine.sessionParams.shortSellingEnabled) {
+    document.getElementById('btn-short').style.display = '';
+    document.getElementById('btn-cover').style.display = '';
+  }
+
+  // Restore portfolio from participant data
+  const p = RoomManager.currentParticipant;
+  portfolio.cash = parseFloat(p.cash);
+  portfolio.shares = p.shares || 0;
+  portfolio.avgCost = parseFloat(p.avg_cost) || 0;
+  portfolio.shortShares = p.short_shares || 0;
+  portfolio.shortAvgCost = parseFloat(p.short_avg_cost) || 0;
+  portfolio.realizedPnl = parseFloat(p.realized_pnl) || 0;
+  portfolio.totalCommissions = parseFloat(p.total_commissions) || 0;
+  portfolio.accruedCashInterest = parseFloat(p.accrued_interest) || 0;
+  portfolio.accruedMarginInterest = 0; // tracked locally per session
+  updateAccountDisplay();
+
+  initChart();
+
+  // Subscribe to price ticks from master
+  RoomManager.subscribeToPrices(
+    room.id,
+    onPriceTick,
+    onParamChange,
+    onSimControl
+  );
+
+  // Clock update
+  setInterval(() => {
+    document.getElementById('topbar-time').textContent = new Date().toLocaleTimeString();
+  }, 1000);
+
+  // Periodic portfolio sync to DB (every 5 seconds)
+  setInterval(() => {
+    if (RoomManager.currentParticipant) {
+      OrderEngine.updateParticipant(RoomManager.currentParticipant.id, {
+        cash: portfolio.cash,
+        shares: portfolio.shares,
+        avg_cost: portfolio.avgCost,
+        short_shares: portfolio.shortShares,
+        short_avg_cost: portfolio.shortAvgCost,
+        realized_pnl: portfolio.realizedPnl,
+        total_commissions: portfolio.totalCommissions,
+        accrued_interest: portfolio.accruedCashInterest
+      });
+    }
+  }, 5000);
+}
+
+/* === CHART === */
+function initChart() {
+  const container = document.getElementById('chart-container');
+  chart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'Solid', color: '#0a0e17' },
+      textColor: '#8b9dc3',
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 10
+    },
+    grid: {
+      vertLines: { color: 'rgba(30, 40, 54, 0.5)' },
+      horzLines: { color: 'rgba(30, 40, 54, 0.5)' }
+    },
+    crosshair: { mode: 0 },
+    rightPriceScale: { borderColor: '#1e2836', scaleMargins: { top: 0.05, bottom: 0.05 } },
+    timeScale: { borderColor: '#1e2836', timeVisible: true, secondsVisible: false, rightOffset: 5 }
+  });
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00c853', downColor: '#ff3d57',
+    borderUpColor: '#00c853', borderDownColor: '#ff3d57',
+    wickUpColor: '#00c853', wickDownColor: '#ff3d57'
+  });
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  }).observe(container);
+}
+
+/* === PRICE TICK HANDLER === */
+function onPriceTick(tick) {
+  lastTick = tick;
+  
+  // Update chart
+  candleSeries.update(tick);
+  
+  // Update top bar
+  document.getElementById('ticker-price').textContent = tick.close.toFixed(2);
+  const change = tick.close - initialPrice;
+  const changePct = (change / initialPrice) * 100;
+  document.getElementById('ticker-change').textContent = (change >= 0 ? '+' : '') + change.toFixed(2);
+  document.getElementById('ticker-change').className = 'ticker-change ' + (change >= 0 ? 'price-up' : 'price-down');
+  document.getElementById('ticker-pct').textContent = '(' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%)';
+  document.getElementById('ticker-pct').className = 'ticker-pct ' + (changePct >= 0 ? 'price-up' : 'price-down');
+
+  // Update bid/ask
+  document.getElementById('bid-price').textContent = tick.bid.toFixed(2);
+  document.getElementById('ask-price').textContent = tick.ask.toFixed(2);
+  document.getElementById('spread-display').textContent = tick.spread.toFixed(2);
+
+  // Accrue interest on each tick
+  const interest = OrderEngine.calcTickInterest(portfolio, tick.close, 1);
+  if (interest.cashInterest > 0) {
+    portfolio.cash += interest.cashInterest;
+    portfolio.accruedCashInterest += interest.cashInterest;
+  }
+  if (interest.marginInterest > 0) {
+    portfolio.cash -= interest.marginInterest;
+    portfolio.accruedMarginInterest += interest.marginInterest;
+  }
+
+  // Check margin call
+  if (OrderEngine.isMarginCall(portfolio, tick.close)) {
+    showToast('MARGIN CALL — Equity below maintenance requirement!', 'error');
+  }
+
+  // Process orders locally
+  processLocalOrders(tick);
+
+  // Update account
+  updateAccountDisplay();
+  updateEstValue();
+}
+
+function onParamChange(params) {
+  // Update local state based on master's parameter changes
+  showToast('Professor updated simulation parameters.', 'info');
+}
+
+function onSimControl(payload) {
+  if (payload.action === 'pause') {
+    showToast('Simulation paused by professor.', 'info');
+  } else if (payload.action === 'resume') {
+    showToast('Simulation resumed.', 'info');
+  } else if (payload.action === 'end') {
+    showToast('Session ended by professor.', 'cancel');
+    // Save metrics
+    saveEndMetrics();
+  }
+}
+
+/* === ORDER PROCESSING === */
+function processLocalOrders(tick) {
+  const working = portfolio.orders.filter(o => o.status === 'WORKING');
+  const fills = OrderEngine.processOrders(working, tick, portfolio);
+
+  for (const fill of fills) {
+    const order = portfolio.orders.find(o => o.id === fill.orderId);
+    if (!order) continue;
+    order.status = 'FILLED';
+    order.avg_fill_price = fill.fillPrice;
+
+    // Apply fill using OrderEngine (handles BUY, SELL, SHORT_SELL, BUY_TO_COVER)
+    OrderEngine.applyFill(fill, portfolio);
+
+    const sideLabels = { BUY: 'BUY', SELL: 'SELL', SHORT_SELL: 'SHORT', BUY_TO_COVER: 'COVER' };
+    portfolio.executions.unshift({
+      time: new Date().toLocaleTimeString(),
+      side: fill.side,
+      type: order.order_type,
+      qty: fill.qty,
+      fillPrice: fill.fillPrice,
+      value: fill.value,
+      commission: fill.commission
+    });
+
+    const commStr = fill.commission > 0 ? ` (comm: $${fill.commission.toFixed(2)})` : '';
+    showToast(`${sideLabels[fill.side] || fill.side} ${fill.qty} @ $${fill.fillPrice.toFixed(2)} FILLED${commStr}`, 'fill');
+
+    // Async save to DB (fire and forget)
+    OrderEngine.recordFill(fill, RoomManager.currentRoom.id, RoomManager.currentParticipant.id);
+    OrderEngine.updateParticipant(RoomManager.currentParticipant.id, {
+      cash: portfolio.cash,
+      shares: portfolio.shares,
+      avg_cost: portfolio.avgCost,
+      short_shares: portfolio.shortShares,
+      short_avg_cost: portfolio.shortAvgCost,
+      realized_pnl: portfolio.realizedPnl,
+      total_commissions: portfolio.totalCommissions,
+      accrued_interest: portfolio.accruedCashInterest
+    });
+  }
+
+  updateOrdersDisplay();
+  updateExecutionsDisplay();
+  updatePositionsDisplay();
+}
+
+/* === ORDER ENTRY === */
+function setSide(side) {
+  currentSide = side;
+  document.getElementById('btn-buy').classList.toggle('active', side === 'BUY');
+  document.getElementById('btn-sell').classList.toggle('active', side === 'SELL');
+  document.getElementById('btn-short').classList.toggle('active', side === 'SHORT_SELL');
+  document.getElementById('btn-cover').classList.toggle('active', side === 'BUY_TO_COVER');
+  const btn = document.getElementById('btn-submit-order');
+  const isBuySide = (side === 'BUY' || side === 'BUY_TO_COVER');
+  btn.className = 'btn-submit-order ' + (isBuySide ? 'buy-order' : 'sell-order');
+  updateSubmitText();
+}
+
+function setOrderType(type) {
+  currentOrderType = type;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+  document.getElementById('limit-price-row').style.display = (type === 'LIMIT' || type === 'STOP_LIMIT') ? 'flex' : 'none';
+  document.getElementById('stop-price-row').style.display = (type === 'STOP' || type === 'STOP_LIMIT') ? 'flex' : 'none';
+  document.getElementById('trail-row').style.display = type === 'TRAILING' ? 'flex' : 'none';
+  updateSubmitText();
+}
+
+function adjustQty(delta) {
+  const el = document.getElementById('order-qty');
+  el.value = Math.max(1, parseInt(el.value || 0) + delta);
+  updateSubmitText();
+  updateEstValue();
+}
+
+function updateSubmitText() {
+  const qty = document.getElementById('order-qty').value;
+  const typeMap = { MARKET: 'MKT', LIMIT: 'LMT', STOP: 'STP', STOP_LIMIT: 'S-LMT', TRAILING: 'TRAIL' };
+  const sideLabels = { BUY: 'BUY', SELL: 'SELL', SHORT_SELL: 'SHORT', BUY_TO_COVER: 'COVER' };
+  document.getElementById('submit-text').textContent = `${sideLabels[currentSide] || currentSide} ${qty} ${typeMap[currentOrderType]}`;
+}
+
+function updateEstValue() {
+  const qty = parseInt(document.getElementById('order-qty').value) || 0;
+  const isBuySide = (currentSide === 'BUY' || currentSide === 'BUY_TO_COVER');
+  const price = lastTick ? (isBuySide ? lastTick.ask : lastTick.bid) : 0;
+  const value = qty * price;
+  const comm = OrderEngine.calcCommission(qty);
+  document.getElementById('order-est-value').textContent = '$' + value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' + $' + comm.toFixed(2) + ' comm';
+}
+
+async function submitOrder() {
+  if (!lastTick) { showToast('Waiting for price data...', 'error'); return; }
+  const qty = parseInt(document.getElementById('order-qty').value);
+  if (!qty || qty <= 0) { showToast('Invalid quantity.', 'error'); return; }
+
+  const orderData = {
+    side: currentSide,
+    orderType: currentOrderType,
+    qty,
+    limitPrice: parseFloat(document.getElementById('order-limit-price').value) || null,
+    stopPrice: parseFloat(document.getElementById('order-stop-price').value) || null,
+    trailAmount: parseFloat(document.getElementById('order-trail-amount').value) || null,
+    tif: document.getElementById('order-tif').value
+  };
+
+  // Validation
+  const commission = OrderEngine.calcCommission(qty);
+  const equity = OrderEngine.calcEquity(portfolio, lastTick.close);
+  const buyingPower = equity * OrderEngine.sessionParams.maxLeverage;
+
+  if (currentSide === 'BUY') {
+    const estCost = qty * lastTick.ask + commission;
+    if (estCost > buyingPower) { showToast('Insufficient buying power.', 'error'); return; }
+  } else if (currentSide === 'SELL') {
+    if (qty > portfolio.shares) { showToast('Insufficient shares.', 'error'); return; }
+  } else if (currentSide === 'SHORT_SELL') {
+    if (!OrderEngine.sessionParams.shortSellingEnabled) { showToast('Short selling is disabled.', 'error'); return; }
+    const shortValue = qty * lastTick.bid;
+    const reqEquity = shortValue * OrderEngine.sessionParams.maintenanceMargin;
+    if (equity - commission < reqEquity) { showToast('Insufficient equity for short.', 'error'); return; }
+  } else if (currentSide === 'BUY_TO_COVER') {
+    if (qty > portfolio.shortShares) { showToast('Cannot cover more than short position.', 'error'); return; }
+  }
+  if ((currentOrderType === 'LIMIT' || currentOrderType === 'STOP_LIMIT') && !orderData.limitPrice) {
+    showToast('Limit price required.', 'error'); return;
+  }
+  if ((currentOrderType === 'STOP' || currentOrderType === 'STOP_LIMIT') && !orderData.stopPrice) {
+    showToast('Stop price required.', 'error'); return;
+  }
+
+  try {
+    const order = await OrderEngine.submitOrder(
+      RoomManager.currentRoom.id,
+      RoomManager.currentParticipant.id,
+      orderData
+    );
+
+    // Add to local working orders
+    portfolio.orders.unshift(order);
+    showToast(`Order submitted: ${currentSide} ${qty} ${currentOrderType}`, 'info');
+    updateOrdersDisplay();
+
+    // If MARKET order, process immediately on next tick
+  } catch (e) {
+    showToast(e.message || 'Order failed.', 'error');
+  }
+}
+
+/* === DISPLAY UPDATES === */
+function updateAccountDisplay() {
+  const price = lastTick ? lastTick.close : initialPrice;
+  const longMktVal = portfolio.shares * price;
+  const shortMktVal = portfolio.shortShares * price;
+  const equity = OrderEngine.calcEquity(portfolio, price);
+  const buyingPower = equity * OrderEngine.sessionParams.maxLeverage;
+  const marginUsed = OrderEngine.calcMarginUsed(portfolio, price);
+
+  // Unrealized P&L: longs + shorts
+  const longUnrealPnl = portfolio.shares > 0 ? (price - portfolio.avgCost) * portfolio.shares : 0;
+  const shortUnrealPnl = portfolio.shortShares > 0 ? (portfolio.shortAvgCost - price) * portfolio.shortShares : 0;
+  const unrealPnl = longUnrealPnl + shortUnrealPnl;
+  const totalPnl = portfolio.realizedPnl + unrealPnl;
+
+  const fmt = (v) => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2 });
+  const fmtSigned = (v) => (v >= 0 ? '+' : '-') + fmt(v);
+
+  document.getElementById('acct-cash').textContent = (portfolio.cash < 0 ? '-' : '') + fmt(portfolio.cash);
+  document.getElementById('acct-buying-power').textContent = fmt(buyingPower);
+  document.getElementById('acct-mktval').textContent = fmt(longMktVal);
+  document.getElementById('acct-short-mktval').textContent = fmt(shortMktVal);
+  document.getElementById('acct-equity').textContent = fmt(equity);
+  document.getElementById('acct-margin-used').textContent = fmt(marginUsed);
+  
+  const upnlEl = document.getElementById('acct-unreal-pnl');
+  upnlEl.textContent = fmtSigned(unrealPnl);
+  upnlEl.className = 'acct-value ' + (unrealPnl >= 0 ? 'price-up' : 'price-down');
+
+  const rpnlEl = document.getElementById('acct-real-pnl');
+  rpnlEl.textContent = fmtSigned(portfolio.realizedPnl);
+  rpnlEl.className = 'acct-value ' + (portfolio.realizedPnl >= 0 ? 'price-up' : 'price-down');
+
+  const tpnlEl = document.getElementById('acct-total-pnl');
+  tpnlEl.textContent = fmtSigned(totalPnl);
+  tpnlEl.className = 'acct-value highlight ' + (totalPnl >= 0 ? 'price-up' : 'price-down');
+
+  document.getElementById('acct-commissions').textContent = '-' + fmt(portfolio.totalCommissions);
+  document.getElementById('acct-interest-earned').textContent = '+' + fmt(portfolio.accruedCashInterest);
+  document.getElementById('acct-margin-interest').textContent = '-' + fmt(portfolio.accruedMarginInterest);
+}
+
+function updatePositionsDisplay() {
+  const tbody = document.getElementById('positions-tbody');
+  const empty = document.getElementById('positions-empty');
+  if (portfolio.shares === 0 && portfolio.shortShares === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  const price = lastTick ? lastTick.close : initialPrice;
+  const ticker = RoomManager.currentRoom.ticker;
+  let html = '';
+
+  // Long position
+  if (portfolio.shares > 0) {
+    const mktVal = portfolio.shares * price;
+    const unrealPnl = (price - portfolio.avgCost) * portfolio.shares;
+    const pctChg = portfolio.avgCost > 0 ? ((price - portfolio.avgCost) / portfolio.avgCost * 100) : 0;
+    const pnlClass = unrealPnl >= 0 ? 'positive' : 'negative';
+    html += `<tr>
+      <td>${ticker}</td>
+      <td class="positive">LONG</td>
+      <td>${portfolio.shares}</td>
+      <td>$${portfolio.avgCost.toFixed(2)}</td>
+      <td>$${price.toFixed(2)}</td>
+      <td>$${mktVal.toFixed(2)}</td>
+      <td class="${pnlClass}">${(unrealPnl >= 0 ? '+' : '')}$${unrealPnl.toFixed(2)}</td>
+      <td class="${pnlClass}">${(pctChg >= 0 ? '+' : '')}${pctChg.toFixed(2)}%</td>
+    </tr>`;
+  }
+
+  // Short position
+  if (portfolio.shortShares > 0) {
+    const shortMktVal = portfolio.shortShares * price;
+    const shortUnrealPnl = (portfolio.shortAvgCost - price) * portfolio.shortShares;
+    const shortPctChg = portfolio.shortAvgCost > 0 ? ((portfolio.shortAvgCost - price) / portfolio.shortAvgCost * 100) : 0;
+    const shortPnlClass = shortUnrealPnl >= 0 ? 'positive' : 'negative';
+    html += `<tr>
+      <td>${ticker}</td>
+      <td class="negative">SHORT</td>
+      <td>${portfolio.shortShares}</td>
+      <td>$${portfolio.shortAvgCost.toFixed(2)}</td>
+      <td>$${price.toFixed(2)}</td>
+      <td>$${shortMktVal.toFixed(2)}</td>
+      <td class="${shortPnlClass}">${(shortUnrealPnl >= 0 ? '+' : '')}$${shortUnrealPnl.toFixed(2)}</td>
+      <td class="${shortPnlClass}">${(shortPctChg >= 0 ? '+' : '')}${shortPctChg.toFixed(2)}%</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+}
+
+function updateOrdersDisplay() {
+  const working = portfolio.orders.filter(o => o.status === 'WORKING');
+  const tbody = document.getElementById('orders-tbody');
+  const empty = document.getElementById('orders-empty');
+  if (working.length === 0) { tbody.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+  let html = '';
+  for (const o of working) {
+    const price = o.limit_price || o.stop_price || '--';
+    const time = new Date(o.created_at).toLocaleTimeString();
+    html += `<tr>
+      <td>${time}</td>
+      <td class="${o.side === 'BUY' ? 'positive' : 'negative'}">${o.side}</td>
+      <td>${o.order_type}</td><td>${o.qty}</td>
+      <td>${price !== '--' ? '$' + parseFloat(price).toFixed(2) : '--'}</td>
+      <td style="color:var(--yellow);">WORKING</td>
+      <td><button class="btn-cancel-order" onclick="cancelOrder('${o.id}')">CANCEL</button></td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+function updateExecutionsDisplay() {
+  const tbody = document.getElementById('executions-tbody');
+  const empty = document.getElementById('executions-empty');
+  if (portfolio.executions.length === 0) { tbody.innerHTML = ''; empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+  let html = '';
+  for (const e of portfolio.executions.slice(0, 50)) {
+    html += `<tr>
+      <td>${e.time}</td>
+      <td class="${e.side === 'BUY' ? 'positive' : 'negative'}">${e.side}</td>
+      <td>${e.type}</td><td>${e.qty}</td>
+      <td>$${e.fillPrice.toFixed(2)}</td>
+      <td>$${e.value.toFixed(2)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+}
+
+async function cancelOrder(orderId) {
+  try {
+    await OrderEngine.cancelOrder(orderId);
+    const order = portfolio.orders.find(o => o.id === orderId);
+    if (order) order.status = 'CANCELLED';
+    updateOrdersDisplay();
+    showToast('Order cancelled.', 'cancel');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+}
+
+async function saveEndMetrics() {
+  const price = lastTick ? lastTick.close : initialPrice;
+  const equity = OrderEngine.calcEquity(portfolio, price);
+  const startCash = parseFloat(RoomManager.currentRoom.starting_cash);
+  const pnl = equity - startCash;
+  const pnlPct = (pnl / startCash) * 100;
+  
+  await OrderEngine.saveMetrics(RoomManager.currentRoom.id, RoomManager.currentParticipant.id, {
+    cash: portfolio.cash,
+    shares: portfolio.shares,
+    equity,
+    pnl,
+    pnlPct,
+    numTrades: portfolio.executions.length,
+    totalCommissions: portfolio.totalCommissions,
+    totalInterestEarned: portfolio.accruedCashInterest,
+    totalMarginInterest: portfolio.accruedMarginInterest,
+    maxMarginUsed: OrderEngine.calcMarginUsed(portfolio, price)
+  });
+}
+
+/* === TOAST === */
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* === RESIZER (from original) === */
+(function initResizers() {
+  const vDiv = document.getElementById('v-divider');
+  if (vDiv) {
+    let startX, startW;
+    vDiv.addEventListener('mousedown', e => {
+      startX = e.clientX;
+      startW = document.querySelector('.left-panel')?.offsetWidth || 340;
+      document.body.classList.add('resizing');
+      const onMove = ev => {
+        const newW = Math.min(500, Math.max(240, startW + ev.clientX - startX));
+        document.querySelector('.main-layout').style.gridTemplateColumns = newW + 'px 4px 1fr';
+      };
+      const onUp = () => {
+        document.body.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+})();
+
+/* === INIT === */
+(async function init() {
+  try {
+    const hasSession = await Auth.init();
+    if (hasSession) {
+      showJoinScreen();
+    }
+  } catch (e) {
+    console.error('Init error:', e);
+  }
+})();
+</script>
+</body>
+</html>
