@@ -1518,6 +1518,11 @@ body.resizing-h {
         <input type="number" id="lobby-margin-rate" value="8.0" step="0.5" min="0" max="30" class="input-field" style="margin-top:2px;">
         <span style="font-size:8px;color:var(--text-muted);">%</span>
       </div>
+      <div>
+        <label style="font-size:9px;color:var(--text-muted);letter-spacing:0.5px;">MARGIN CALL GRACE (ticks)</label>
+        <input type="number" id="lobby-mc-grace" value="30" step="5" min="5" max="120" class="input-field" style="margin-top:2px;">
+        <span style="font-size:8px;color:var(--text-muted);">ticks before liquidation</span>
+      </div>
     </div>
 
     <button class="btn-primary" id="btn-create-room" onclick="createRoom()" style="margin-top:16px;">CREATE SESSION</button>
@@ -1691,6 +1696,10 @@ body.resizing-h {
         <div class="ms-stat-row">
           <span class="ms-stat-label">Margin Rate</span>
           <span class="ms-stat-value" id="ms-margin-rate">8.0%</span>
+        </div>
+        <div class="ms-stat-row">
+          <span class="ms-stat-label">MC Grace</span>
+          <span class="ms-stat-value" id="ms-mc-grace">30 ticks</span>
         </div>
       </div>
     </div>
@@ -1927,7 +1936,8 @@ const RoomManager = {
       cash_interest_rate: params.cashInterestRate || 0.02,
       margin_interest_rate: params.marginInterestRate || 0.08,
       short_selling_enabled: params.shortSellingEnabled !== false,
-      maintenance_margin: params.maintenanceMargin || 0.25
+      maintenance_margin: params.maintenanceMargin || 0.25,
+      margin_call_grace_ticks: params.marginCallGraceTicks || 30
     };
 
     const { data, error } = await sb.from('rooms').insert(roomData).select().single();
@@ -2436,7 +2446,8 @@ const PriceEngine = {
 <script>
 /* =========================================================
    Technetos Multiplayer — Order Engine (v2)
-   Supports: Long, Short, Margin, Commissions, Interest
+   Supports: Long, Short, Margin, Commissions, Interest,
+   Margin Call with grace period & forced liquidation
    ========================================================= */
 
 const OrderEngine = {
@@ -2449,7 +2460,8 @@ const OrderEngine = {
     marginInterestRate: 0.08,  // annual
     shortSellingEnabled: true,
     maintenanceMargin: 0.25,
-    startingCash: 100000
+    startingCash: 100000,
+    marginCallGraceTicks: 30   // ticks before forced liquidation
   },
 
   /** Initialize session parameters from room config */
@@ -2462,7 +2474,8 @@ const OrderEngine = {
       marginInterestRate: parseFloat(room.margin_interest_rate) || 0.08,
       shortSellingEnabled: room.short_selling_enabled !== false,
       maintenanceMargin: parseFloat(room.maintenance_margin) || 0.25,
-      startingCash: parseFloat(room.starting_cash) || 100000
+      startingCash: parseFloat(room.starting_cash) || 100000,
+      marginCallGraceTicks: parseInt(room.margin_call_grace_ticks) || 30
     };
   },
 
@@ -2509,6 +2522,56 @@ const OrderEngine = {
     const equity = this.calcEquity(portfolio, currentPrice);
     const maintReq = this.calcMaintenanceReq(portfolio, currentPrice);
     return equity < maintReq && (portfolio.shares > 0 || portfolio.shortShares > 0);
+  },
+
+  /** Check if an order side opens a new position (blocked during margin call) */
+  isOpeningOrder(side) {
+    return side === 'BUY' || side === 'SHORT_SELL';
+  },
+
+  /** Generate forced liquidation orders to restore margin.
+   *  Strategy: close positions proportionally until equity >= maintenance req.
+   *  Returns array of { side, qty } liquidation orders.
+   */
+  generateLiquidationOrders(portfolio, currentPrice) {
+    const orders = [];
+    const equity = this.calcEquity(portfolio, currentPrice);
+    const maintReq = this.calcMaintenanceReq(portfolio, currentPrice);
+    if (equity >= maintReq) return orders; // no liquidation needed
+
+    // Calculate how much equity deficit we have
+    let deficit = maintReq - equity;
+
+    // First: close short positions (buy to cover) — each share covered
+    // reduces maintenance req and may free equity
+    if (portfolio.shortShares > 0) {
+      // Covering 1 short share: reduces maintReq by (price * maintenanceMargin)
+      // and changes equity by (shortAvgCost - price) per share (P&L recognition)
+      const reliefPerShare = currentPrice * this.sessionParams.maintenanceMargin;
+      const sharesToCover = Math.min(
+        portfolio.shortShares,
+        Math.ceil(deficit / reliefPerShare)
+      );
+      if (sharesToCover > 0) {
+        orders.push({ side: 'BUY_TO_COVER', qty: sharesToCover });
+        // Estimate new deficit after covering
+        deficit -= sharesToCover * reliefPerShare;
+      }
+    }
+
+    // Then: sell long positions if still in deficit
+    if (deficit > 0 && portfolio.shares > 0) {
+      const reliefPerShare = currentPrice * this.sessionParams.maintenanceMargin;
+      const sharesToSell = Math.min(
+        portfolio.shares,
+        Math.ceil(deficit / reliefPerShare)
+      );
+      if (sharesToSell > 0) {
+        orders.push({ side: 'SELL', qty: sharesToSell });
+      }
+    }
+
+    return orders;
   },
 
   /** Accrue interest (called periodically, e.g., every tick)
@@ -2985,6 +3048,7 @@ async function createRoom() {
   const minComm = parseFloat(document.getElementById('lobby-min-comm').value) || 1.00;
   const cashRate = (parseFloat(document.getElementById('lobby-cash-rate').value) || 2.0) / 100;
   const marginRate = (parseFloat(document.getElementById('lobby-margin-rate').value) || 8.0) / 100;
+  const mcGraceTicks = parseInt(document.getElementById('lobby-mc-grace').value) || 30;
 
   try {
     document.getElementById('btn-create-room').textContent = 'CREATING...';
@@ -2997,7 +3061,8 @@ async function createRoom() {
       commissionPerShare: commPerShare,
       minCommission: minComm,
       cashInterestRate: cashRate,
-      marginInterestRate: marginRate
+      marginInterestRate: marginRate,
+      marginCallGraceTicks: mcGraceTicks
     });
     showWaitingRoom();
   } catch (e) {
@@ -3093,6 +3158,7 @@ async function startSession() {
     document.getElementById('ms-commission').textContent = '$' + sp.commissionPerShare + '/sh';
     document.getElementById('ms-cash-rate').textContent = (sp.cashInterestRate * 100).toFixed(1) + '%';
     document.getElementById('ms-margin-rate').textContent = (sp.marginInterestRate * 100).toFixed(1) + '%';
+    document.getElementById('ms-mc-grace').textContent = (sp.marginCallGraceTicks || 30) + ' ticks';
 
     initChart();
     startSimulation();
