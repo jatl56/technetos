@@ -1572,6 +1572,24 @@ body.resizing-h {
 
 <div class="toast-container" id="toast-container"></div>
 
+<!-- MARGIN CALL BANNER -->
+<div id="margin-call-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999;
+  background:linear-gradient(90deg,#1a0000,#330000,#1a0000); border-bottom:2px solid #ff3333;
+  padding:8px 16px; text-align:center; font-family:'Roboto Mono',monospace;">
+  <div style="display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap;">
+    <span id="mc-icon" style="font-size:18px; color:#ff3333; animation:mcBlink 0.8s infinite;">&#9888;</span>
+    <span style="color:#ff3333; font-weight:700; font-size:13px; letter-spacing:1px;">MARGIN CALL</span>
+    <span style="color:#ff9900; font-size:12px;" id="mc-message">Close positions to restore margin</span>
+    <span style="color:#ffcc00; font-size:12px; font-weight:700;" id="mc-countdown"></span>
+    <div style="width:120px; height:6px; background:#1a1a1a; border-radius:3px; overflow:hidden;">
+      <div id="mc-progress" style="height:100%; background:#ff3333; transition:width 0.3s;"></div>
+    </div>
+  </div>
+</div>
+<style>
+@keyframes mcBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+
 <!-- SCRIPTS -->
 <script>
 /* =========================================================
@@ -1765,7 +1783,8 @@ const RoomManager = {
       cash_interest_rate: params.cashInterestRate || 0.02,
       margin_interest_rate: params.marginInterestRate || 0.08,
       short_selling_enabled: params.shortSellingEnabled !== false,
-      maintenance_margin: params.maintenanceMargin || 0.25
+      maintenance_margin: params.maintenanceMargin || 0.25,
+      margin_call_grace_ticks: params.marginCallGraceTicks || 30
     };
 
     const { data, error } = await sb.from('rooms').insert(roomData).select().single();
@@ -2004,7 +2023,8 @@ const RoomManager = {
 <script>
 /* =========================================================
    Technetos Multiplayer — Order Engine (v2)
-   Supports: Long, Short, Margin, Commissions, Interest
+   Supports: Long, Short, Margin, Commissions, Interest,
+   Margin Call with grace period & forced liquidation
    ========================================================= */
 
 const OrderEngine = {
@@ -2017,7 +2037,8 @@ const OrderEngine = {
     marginInterestRate: 0.08,  // annual
     shortSellingEnabled: true,
     maintenanceMargin: 0.25,
-    startingCash: 100000
+    startingCash: 100000,
+    marginCallGraceTicks: 30   // ticks before forced liquidation
   },
 
   /** Initialize session parameters from room config */
@@ -2030,7 +2051,8 @@ const OrderEngine = {
       marginInterestRate: parseFloat(room.margin_interest_rate) || 0.08,
       shortSellingEnabled: room.short_selling_enabled !== false,
       maintenanceMargin: parseFloat(room.maintenance_margin) || 0.25,
-      startingCash: parseFloat(room.starting_cash) || 100000
+      startingCash: parseFloat(room.starting_cash) || 100000,
+      marginCallGraceTicks: parseInt(room.margin_call_grace_ticks) || 30
     };
   },
 
@@ -2077,6 +2099,56 @@ const OrderEngine = {
     const equity = this.calcEquity(portfolio, currentPrice);
     const maintReq = this.calcMaintenanceReq(portfolio, currentPrice);
     return equity < maintReq && (portfolio.shares > 0 || portfolio.shortShares > 0);
+  },
+
+  /** Check if an order side opens a new position (blocked during margin call) */
+  isOpeningOrder(side) {
+    return side === 'BUY' || side === 'SHORT_SELL';
+  },
+
+  /** Generate forced liquidation orders to restore margin.
+   *  Strategy: close positions proportionally until equity >= maintenance req.
+   *  Returns array of { side, qty } liquidation orders.
+   */
+  generateLiquidationOrders(portfolio, currentPrice) {
+    const orders = [];
+    const equity = this.calcEquity(portfolio, currentPrice);
+    const maintReq = this.calcMaintenanceReq(portfolio, currentPrice);
+    if (equity >= maintReq) return orders; // no liquidation needed
+
+    // Calculate how much equity deficit we have
+    let deficit = maintReq - equity;
+
+    // First: close short positions (buy to cover) — each share covered
+    // reduces maintenance req and may free equity
+    if (portfolio.shortShares > 0) {
+      // Covering 1 short share: reduces maintReq by (price * maintenanceMargin)
+      // and changes equity by (shortAvgCost - price) per share (P&L recognition)
+      const reliefPerShare = currentPrice * this.sessionParams.maintenanceMargin;
+      const sharesToCover = Math.min(
+        portfolio.shortShares,
+        Math.ceil(deficit / reliefPerShare)
+      );
+      if (sharesToCover > 0) {
+        orders.push({ side: 'BUY_TO_COVER', qty: sharesToCover });
+        // Estimate new deficit after covering
+        deficit -= sharesToCover * reliefPerShare;
+      }
+    }
+
+    // Then: sell long positions if still in deficit
+    if (deficit > 0 && portfolio.shares > 0) {
+      const reliefPerShare = currentPrice * this.sessionParams.maintenanceMargin;
+      const sharesToSell = Math.min(
+        portfolio.shares,
+        Math.ceil(deficit / reliefPerShare)
+      );
+      if (sharesToSell > 0) {
+        orders.push({ side: 'SELL', qty: sharesToSell });
+      }
+    }
+
+    return orders;
   },
 
   /** Accrue interest (called periodically, e.g., every tick)
@@ -2474,6 +2546,14 @@ let portfolio = {
   executions: []  // fills (local)
 };
 
+// Margin call state
+let marginCallState = {
+  active: false,
+  ticksRemaining: 0,
+  totalGraceTicks: 0,
+  liquidationExecuted: false
+};
+
 /* === AUTH === */
 function toggleAuthMode() {
   authMode = authMode === 'signin' ? 'signup' : 'signin';
@@ -2737,9 +2817,39 @@ function onPriceTick(tick) {
     portfolio.accruedMarginInterest += interest.marginInterest;
   }
 
-  // Check margin call
-  if (OrderEngine.isMarginCall(portfolio, tick.close)) {
-    showToast('MARGIN CALL — Equity below maintenance requirement!', 'error');
+  // === MARGIN CALL STATE MACHINE ===
+  const inMarginCall = OrderEngine.isMarginCall(portfolio, tick.close);
+
+  if (inMarginCall) {
+    if (!marginCallState.active) {
+      // Entering margin call — start grace period
+      marginCallState.active = true;
+      marginCallState.totalGraceTicks = OrderEngine.sessionParams.marginCallGraceTicks;
+      marginCallState.ticksRemaining = marginCallState.totalGraceTicks;
+      marginCallState.liquidationExecuted = false;
+      showToast('MARGIN CALL — Close positions or face liquidation!', 'error');
+      showMarginCallBanner(true);
+    } else {
+      // Already in margin call — count down
+      marginCallState.ticksRemaining = Math.max(0, marginCallState.ticksRemaining - 1);
+    }
+
+    // Forced liquidation when grace period expires
+    if (marginCallState.ticksRemaining <= 0 && !marginCallState.liquidationExecuted) {
+      marginCallState.liquidationExecuted = true;
+      executeForcedLiquidation(tick);
+    }
+
+    updateMarginCallBanner();
+  } else {
+    // Margin restored — clear state
+    if (marginCallState.active) {
+      marginCallState.active = false;
+      marginCallState.ticksRemaining = 0;
+      marginCallState.liquidationExecuted = false;
+      showMarginCallBanner(false);
+      showToast('Margin restored — margin call cleared.', 'info');
+    }
   }
 
   // Process orders locally
@@ -2861,6 +2971,13 @@ function updateEstValue() {
 
 async function submitOrder() {
   if (!lastTick) { showToast('Waiting for price data...', 'error'); return; }
+
+  // Block new position-opening orders during margin call
+  if (marginCallState.active && OrderEngine.isOpeningOrder(currentSide)) {
+    showToast('MARGIN CALL ACTIVE — Cannot open new positions. Close existing positions to restore margin.', 'error');
+    return;
+  }
+
   const qty = parseInt(document.getElementById('order-qty').value);
   if (!qty || qty <= 0) { showToast('Invalid quantity.', 'error'); return; }
 
@@ -3040,10 +3157,13 @@ function updateExecutionsDisplay() {
   empty.style.display = 'none';
   let html = '';
   for (const e of portfolio.executions.slice(0, 50)) {
-    html += `<tr>
+    const isLiq = e._liquidation || e.type === 'LIQUIDATION';
+    const rowStyle = isLiq ? ' style="background:rgba(255,0,0,0.15);"' : '';
+    const typeLabel = isLiq ? '<span style="color:#ff3333;font-weight:700;">LIQ</span>' : e.type;
+    html += `<tr${rowStyle}>
       <td>${e.time}</td>
-      <td class="${e.side === 'BUY' ? 'positive' : 'negative'}">${e.side}</td>
-      <td>${e.type}</td><td>${e.qty}</td>
+      <td class="${e.side === 'BUY' || e.side === 'BUY_TO_COVER' ? 'positive' : 'negative'}">${e.side}</td>
+      <td>${typeLabel}</td><td>${e.qty}</td>
       <td>$${e.fillPrice.toFixed(2)}</td>
       <td>$${e.value.toFixed(2)}</td>
     </tr>`;
@@ -3088,6 +3208,99 @@ async function saveEndMetrics() {
     totalMarginInterest: portfolio.accruedMarginInterest,
     maxMarginUsed: OrderEngine.calcMarginUsed(portfolio, price)
   });
+}
+
+/* === MARGIN CALL BANNER & LIQUIDATION === */
+function showMarginCallBanner(show) {
+  const banner = document.getElementById('margin-call-banner');
+  if (banner) banner.style.display = show ? 'block' : 'none';
+  // Dim the BUY and SHORT buttons when in margin call
+  const btnSubmit = document.getElementById('btn-submit-order');
+  if (btnSubmit && show && OrderEngine.isOpeningOrder(currentSide)) {
+    btnSubmit.style.opacity = '0.4';
+    btnSubmit.style.pointerEvents = 'none';
+  } else if (btnSubmit && !show) {
+    btnSubmit.style.opacity = '1';
+    btnSubmit.style.pointerEvents = 'auto';
+  }
+}
+
+function updateMarginCallBanner() {
+  const countdown = document.getElementById('mc-countdown');
+  const progress = document.getElementById('mc-progress');
+  const msg = document.getElementById('mc-message');
+  if (!countdown || !progress) return;
+
+  const t = marginCallState.ticksRemaining;
+  const total = marginCallState.totalGraceTicks;
+
+  if (marginCallState.liquidationExecuted) {
+    countdown.textContent = 'LIQUIDATED';
+    progress.style.width = '100%';
+    progress.style.background = '#ff0000';
+    msg.textContent = 'Positions force-closed by broker';
+  } else {
+    countdown.textContent = t + ' ticks remaining';
+    const pct = total > 0 ? ((total - t) / total) * 100 : 100;
+    progress.style.width = pct + '%';
+    progress.style.background = pct > 70 ? '#ff0000' : '#ff9900';
+    msg.textContent = t <= 5 ? 'IMMINENT LIQUIDATION — Close positions NOW!' : 'Close positions to restore margin';
+  }
+}
+
+function executeForcedLiquidation(tick) {
+  const price = tick.close;
+  const liquidations = OrderEngine.generateLiquidationOrders(portfolio, price);
+
+  if (liquidations.length === 0) return;
+
+  showToast('FORCED LIQUIDATION — Broker is closing your positions!', 'error');
+
+  for (const liq of liquidations) {
+    const fillPrice = (liq.side === 'SELL' || liq.side === 'SHORT_SELL') ? tick.bid : tick.ask;
+    const fill = {
+      orderId: 'LIQUIDATION-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+      side: liq.side,
+      qty: liq.qty,
+      fillPrice: +fillPrice.toFixed(4),
+      value: +(fillPrice * liq.qty).toFixed(2),
+      commission: +OrderEngine.calcCommission(liq.qty).toFixed(2)
+    };
+
+    // Apply fill to portfolio
+    OrderEngine.applyFill(fill, portfolio);
+
+    // Record in executions list (same structure as regular fills)
+    portfolio.executions.unshift({
+      time: new Date().toLocaleTimeString(),
+      side: fill.side,
+      type: 'LIQUIDATION',
+      qty: fill.qty,
+      fillPrice: fill.fillPrice,
+      value: fill.value,
+      commission: fill.commission,
+      _liquidation: true
+    });
+
+    showToast(`LIQUIDATED: ${liq.side} ${liq.qty} @ ${fillPrice.toFixed(2)}`, 'error');
+  }
+
+  // Sync to DB
+  const prt = portfolio;
+  const p = lastTick ? lastTick.close : 100;
+  OrderEngine.updateParticipant(RoomManager.currentParticipant.id, {
+    cash: prt.cash,
+    shares: prt.shares,
+    avg_cost: prt.avgCost,
+    short_shares: prt.shortShares,
+    short_avg_cost: prt.shortAvgCost,
+    realized_pnl: prt.realizedPnl,
+    total_commissions: prt.totalCommissions,
+    accrued_interest: prt.accruedCashInterest
+  });
+
+  updateAccountDisplay();
+  updateOrdersDisplay();
 }
 
 /* === TOAST === */
