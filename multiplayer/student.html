@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/lightweight-charts@5.1.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="../style.css">
 <style>
@@ -115,6 +115,50 @@
   .left-panel { max-height: 280px; }
   .resizer-v { display: none; }
 }
+
+/* TA Toolbar styles */
+.ta-btn {
+  background: #1a2332; border: 1px solid #2a3a4a; color: #8899aa; font-size: 10px;
+  padding: 3px 8px; border-radius: 3px; cursor: pointer; font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap; transition: all 0.15s;
+}
+.ta-btn:hover { background: #253040; color: #ccddee; border-color: #3a5a7a; }
+.ta-btn.active { background: #1a3a5a; color: #4da6ff; border-color: #4da6ff; }
+.ta-dropdown {
+  position: absolute; top: 100%; left: 0; z-index: 100;
+  background: #141c28; border: 1px solid #2a3a4a; border-radius: 4px;
+  min-width: 160px; padding: 4px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.ta-dropdown button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  color: #aabbcc; font-size: 10px; padding: 5px 12px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+.ta-dropdown button:hover { background: #1a2a3a; color: #eef; }
+.ta-dd-title {
+  font-size: 8px; color: #556677; letter-spacing: 1px; padding: 4px 12px 2px;
+  font-weight: 700;
+}
+/* Active TA modal */
+.ta-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6);
+  z-index: 200; display: flex; align-items: center; justify-content: center;
+}
+.ta-modal {
+  background: #141c28; border: 1px solid #2a3a4a; border-radius: 6px;
+  padding: 16px; min-width: 260px; max-width: 350px; font-family: 'JetBrains Mono', monospace;
+}
+.ta-modal h3 { margin: 0 0 12px 0; font-size: 11px; color: #aabbcc; letter-spacing: 1px; }
+.ta-modal-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; border-bottom: 1px solid #1a2a3a;
+}
+.ta-modal-item span { font-size: 10px; color: #8899aa; }
+.ta-modal-item button {
+  background: none; border: none; color: #ff5555; cursor: pointer; font-size: 12px;
+  padding: 2px 6px;
+}
+.ta-modal-item button:hover { color: #ff0000; }
 </style>
 </head>
 <body>
@@ -286,6 +330,28 @@
             <div class="acct-item"><span class="acct-label">Short Mkt Val</span><span class="acct-value" id="acct-short-mktval">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Total Equity</span><span class="acct-value highlight" id="acct-equity">$100,000.00</span></div>
             <div class="acct-item"><span class="acct-label">Margin Used</span><span class="acct-value" id="acct-margin-used">$0.00</span></div>
+
+            <!-- Margin Status Box -->
+            <div id="margin-status-box" style="margin:6px 0; padding:6px 8px; border-radius:4px; border:1px solid #2a3a4a; background:#0d1117; font-size:10px; font-family:'Roboto Mono',monospace;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="color:#8899aa; letter-spacing:0.5px; font-size:9px;">MARGIN STATUS</span>
+                <span id="ms-status-badge" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:3px; background:#0d3320; color:#33ff99;">OK</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Maint. Required</span>
+                <span style="color:#ccddee;" id="ms-maint-req">$0.00</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Equity Ratio</span>
+                <span style="color:#ccddee;" id="ms-equity-ratio">--</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Equity Surplus</span>
+                <span style="color:#33ff99;" id="ms-equity-surplus">--</span>
+              </div>
+              <div id="ms-info-line" style="display:none; margin-top:4px; padding:3px 6px; border-radius:3px; font-size:9px; line-height:1.4;"></div>
+            </div>
+
             <div class="acct-item"><span class="acct-label">Unrealized P&L</span><span class="acct-value" id="acct-unreal-pnl">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Realized P&L</span><span class="acct-value" id="acct-real-pnl">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Total P&L</span><span class="acct-value highlight" id="acct-total-pnl">$0.00</span></div>
@@ -303,8 +369,41 @@
     <!-- RIGHT PANEL -->
     <div class="right-panel">
       <div class="panel chart-panel">
-        <div class="panel-header chart-header">
-          <span class="panel-title" id="chart-title">AAPL</span>
+        <div class="panel-header chart-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; padding:4px 8px;">
+          <span class="panel-title" id="chart-title" style="margin-right:8px;">AAPL</span>
+          <div class="ta-toolbar" style="display:flex; align-items:center; gap:2px; flex-wrap:wrap;">
+            <!-- Indicators dropdown -->
+            <div style="position:relative;display:inline-block;" id="ind-dropdown-wrap">
+              <button class="ta-btn" onclick="toggleDropdown('ind-dropdown')" title="Indicators">&#x1F4C8; Indicators</button>
+              <div id="ind-dropdown" class="ta-dropdown" style="display:none;">
+                <div class="ta-dd-title">OVERLAY</div>
+                <button onclick="addTA('SMA',{period:20,color:'#2196F3'})">SMA (20)</button>
+                <button onclick="addTA('SMA',{period:50,color:'#4CAF50'})">SMA (50)</button>
+                <button onclick="addTA('SMA',{period:200,color:'#FF5722'})">SMA (200)</button>
+                <button onclick="addTA('EMA',{period:12,color:'#FF9800'})">EMA (12)</button>
+                <button onclick="addTA('EMA',{period:26,color:'#00BCD4'})">EMA (26)</button>
+                <button onclick="addTA('BOLL',{period:20,stdDev:2})">Bollinger Bands</button>
+                <div class="ta-dd-title" style="margin-top:4px;">PANEL</div>
+                <button onclick="addTA('RSI',{period:14})">RSI (14)</button>
+                <button onclick="addTA('MACD',{fast:12,slow:26,signal:9})">MACD (12,26,9)</button>
+                <button onclick="addTA('VOL',{})">Volume</button>
+              </div>
+            </div>
+            <!-- Drawing tools dropdown -->
+            <div style="position:relative;display:inline-block;" id="draw-dropdown-wrap">
+              <button class="ta-btn" onclick="toggleDropdown('draw-dropdown')" title="Drawing Tools">&#x270F; Draw</button>
+              <div id="draw-dropdown" class="ta-dropdown" style="display:none;">
+                <button onclick="startDraw('horzline')">&#x2500; Horizontal Line</button>
+                <button onclick="startDraw('trendline')">&#x2571; Trend Line</button>
+                <button onclick="startDraw('channel')">&#x25AF; Channel</button>
+              </div>
+            </div>
+            <!-- Active list & clear -->
+            <button class="ta-btn" onclick="showActiveTA()" title="Active Studies" id="btn-active-ta" style="display:none;">&#x2699; Active</button>
+            <button class="ta-btn" onclick="clearAllTA()" title="Clear All" id="btn-clear-ta" style="display:none;">&#x2715;</button>
+            <!-- Drawing status -->
+            <span id="draw-status" style="display:none; font-size:9px; color:#ffcc00; margin-left:4px;"></span>
+          </div>
         </div>
         <div class="chart-container" id="chart-container"></div>
       </div>
@@ -349,11 +448,30 @@
 
 <div class="toast-container" id="toast-container"></div>
 
+<!-- MARGIN CALL BANNER -->
+<div id="margin-call-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999;
+  background:linear-gradient(90deg,#1a0000,#330000,#1a0000); border-bottom:2px solid #ff3333;
+  padding:8px 16px; text-align:center; font-family:'Roboto Mono',monospace;">
+  <div style="display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap;">
+    <span id="mc-icon" style="font-size:18px; color:#ff3333; animation:mcBlink 0.8s infinite;">&#9888;</span>
+    <span style="color:#ff3333; font-weight:700; font-size:13px; letter-spacing:1px;">MARGIN CALL</span>
+    <span style="color:#ff9900; font-size:12px;" id="mc-message">Close positions to restore margin</span>
+    <span style="color:#ffcc00; font-size:12px; font-weight:700;" id="mc-countdown"></span>
+    <div style="width:120px; height:6px; background:#1a1a1a; border-radius:3px; overflow:hidden;">
+      <div id="mc-progress" style="height:100%; background:#ff3333; transition:width 0.3s;"></div>
+    </div>
+  </div>
+</div>
+<style>
+@keyframes mcBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+
 <!-- SCRIPTS -->
 <script src="./supabase-config.js"></script>
 <script src="./auth.js"></script>
 <script src="./room-manager.js"></script>
 <script src="./order-engine.js"></script>
+<script src="./ta-engine.js"></script>
 <script>
 /* =========================================================
    STUDENT CONTROLLER
@@ -379,6 +497,14 @@ let portfolio = {
   accruedMarginInterest: 0,
   orders: [],     // working orders (local)
   executions: []  // fills (local)
+};
+
+// Margin call state
+let marginCallState = {
+  active: false,
+  ticksRemaining: 0,
+  totalGraceTicks: 0,
+  liquidationExecuted: false
 };
 
 /* === AUTH === */
@@ -602,7 +728,8 @@ function initChart() {
     rightPriceScale: { borderColor: '#1e2836', scaleMargins: { top: 0.05, bottom: 0.05 } },
     timeScale: { borderColor: '#1e2836', timeVisible: true, secondsVisible: false, rightOffset: 5 }
   });
-  candleSeries = chart.addCandlestickSeries({
+  // v5 API: addSeries(CandlestickSeries, options)
+  candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
     upColor: '#00c853', downColor: '#ff3d57',
     borderUpColor: '#00c853', borderDownColor: '#ff3d57',
     wickUpColor: '#00c853', wickDownColor: '#ff3d57'
@@ -610,6 +737,19 @@ function initChart() {
   new ResizeObserver(() => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
   }).observe(container);
+
+  // Initialize TA Engine
+  TAEngine.init(chart, candleSeries);
+
+  // Chart click handler for drawing tools
+  chart.subscribeClick((param) => {
+    if (!TAEngine.drawingMode) return;
+    if (!param.time || !param.point) return;
+    const price = candleSeries.coordinateToPrice(param.point.y);
+    if (price === null || price === undefined) return;
+    const consumed = TAEngine.handleClick(param.time, price);
+    if (consumed) updateTAButtons();
+  });
 }
 
 /* === PRICE TICK HANDLER === */
@@ -618,6 +758,7 @@ function onPriceTick(tick) {
   
   // Update chart
   candleSeries.update(tick);
+  TAEngine.pushCandle(tick);
   
   // Update top bar
   document.getElementById('ticker-price').textContent = tick.close.toFixed(2);
@@ -644,9 +785,39 @@ function onPriceTick(tick) {
     portfolio.accruedMarginInterest += interest.marginInterest;
   }
 
-  // Check margin call
-  if (OrderEngine.isMarginCall(portfolio, tick.close)) {
-    showToast('MARGIN CALL — Equity below maintenance requirement!', 'error');
+  // === MARGIN CALL STATE MACHINE ===
+  const inMarginCall = OrderEngine.isMarginCall(portfolio, tick.close);
+
+  if (inMarginCall) {
+    if (!marginCallState.active) {
+      // Entering margin call — start grace period
+      marginCallState.active = true;
+      marginCallState.totalGraceTicks = OrderEngine.sessionParams.marginCallGraceTicks;
+      marginCallState.ticksRemaining = marginCallState.totalGraceTicks;
+      marginCallState.liquidationExecuted = false;
+      showToast('MARGIN CALL — Close positions or face liquidation!', 'error');
+      showMarginCallBanner(true);
+    } else {
+      // Already in margin call — count down
+      marginCallState.ticksRemaining = Math.max(0, marginCallState.ticksRemaining - 1);
+    }
+
+    // Forced liquidation when grace period expires
+    if (marginCallState.ticksRemaining <= 0 && !marginCallState.liquidationExecuted) {
+      marginCallState.liquidationExecuted = true;
+      executeForcedLiquidation(tick);
+    }
+
+    updateMarginCallBanner();
+  } else {
+    // Margin restored — clear state
+    if (marginCallState.active) {
+      marginCallState.active = false;
+      marginCallState.ticksRemaining = 0;
+      marginCallState.liquidationExecuted = false;
+      showMarginCallBanner(false);
+      showToast('Margin restored — margin call cleared.', 'info');
+    }
   }
 
   // Process orders locally
@@ -768,6 +939,13 @@ function updateEstValue() {
 
 async function submitOrder() {
   if (!lastTick) { showToast('Waiting for price data...', 'error'); return; }
+
+  // Block new position-opening orders during margin call
+  if (marginCallState.active && OrderEngine.isOpeningOrder(currentSide)) {
+    showToast('MARGIN CALL ACTIVE — Cannot open new positions. Close existing positions to restore margin.', 'error');
+    return;
+  }
+
   const qty = parseInt(document.getElementById('order-qty').value);
   if (!qty || qty <= 0) { showToast('Invalid quantity.', 'error'); return; }
 
@@ -864,6 +1042,88 @@ function updateAccountDisplay() {
   document.getElementById('acct-commissions').textContent = '-' + fmt(portfolio.totalCommissions);
   document.getElementById('acct-interest-earned').textContent = '+' + fmt(portfolio.accruedCashInterest);
   document.getElementById('acct-margin-interest').textContent = '-' + fmt(portfolio.accruedMarginInterest);
+
+  // Update margin status box
+  updateMarginStatusBox(price, equity);
+}
+
+function updateMarginStatusBox(price, equity) {
+  const totalPos = (portfolio.shares * price) + (portfolio.shortShares * price);
+  const maintReq = OrderEngine.calcMaintenanceReq(portfolio, price);
+  const surplus = equity - maintReq;
+  const ratio = totalPos > 0 ? (equity / totalPos) : 0;
+  const maintPct = OrderEngine.sessionParams.maintenanceMargin;
+
+  const fmt = (v) => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+  // Status badge
+  const badge = document.getElementById('ms-status-badge');
+  const infoLine = document.getElementById('ms-info-line');
+  const surplusEl = document.getElementById('ms-equity-surplus');
+  const box = document.getElementById('margin-status-box');
+
+  if (!badge || !box) return;
+
+  document.getElementById('ms-maint-req').textContent = fmt(maintReq);
+
+  if (totalPos > 0) {
+    document.getElementById('ms-equity-ratio').textContent = (ratio * 100).toFixed(1) + '% (min ' + (maintPct * 100).toFixed(0) + '%)';
+  } else {
+    document.getElementById('ms-equity-ratio').textContent = 'No positions';
+  }
+
+  if (totalPos === 0) {
+    // No positions — all clear
+    badge.textContent = 'OK';
+    badge.style.background = '#0d3320'; badge.style.color = '#33ff99';
+    box.style.borderColor = '#2a3a4a';
+    surplusEl.textContent = '--';
+    surplusEl.style.color = '#33ff99';
+    infoLine.style.display = 'none';
+  } else if (marginCallState.liquidationExecuted) {
+    // Liquidated
+    badge.textContent = 'LIQUIDATED';
+    badge.style.background = '#4d0000'; badge.style.color = '#ff3333';
+    box.style.borderColor = '#ff3333';
+    surplusEl.textContent = (surplus >= 0 ? '+' : '-') + fmt(surplus);
+    surplusEl.style.color = '#ff3333';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a0000'; infoLine.style.color = '#ff6666';
+    infoLine.textContent = 'Positions were force-closed by the broker. You may resume trading.';
+  } else if (marginCallState.active) {
+    // Margin Call active
+    const t = marginCallState.ticksRemaining;
+    badge.textContent = 'MARGIN CALL';
+    badge.style.background = '#4d0000'; badge.style.color = '#ff3333';
+    box.style.borderColor = '#ff3333';
+    surplusEl.textContent = '-' + fmt(Math.abs(surplus));
+    surplusEl.style.color = '#ff3333';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a0000'; infoLine.style.color = '#ff9900';
+    if (t <= 5) {
+      infoLine.textContent = '\u26A0 IMMINENT LIQUIDATION in ' + t + ' ticks! Sell/cover positions immediately or they will be force-closed.';
+    } else {
+      infoLine.textContent = '\u26A0 Equity below maintenance margin. You have ' + t + ' ticks to close positions. New BUY/SHORT orders are blocked.';
+    }
+  } else if (ratio > 0 && ratio < maintPct * 1.5) {
+    // Warning — approaching margin call
+    badge.textContent = 'WARNING';
+    badge.style.background = '#332200'; badge.style.color = '#ffaa00';
+    box.style.borderColor = '#ff9900';
+    surplusEl.textContent = '+' + fmt(surplus);
+    surplusEl.style.color = '#ffaa00';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a1100'; infoLine.style.color = '#ffcc66';
+    infoLine.textContent = 'Approaching maintenance margin. Consider reducing positions to avoid a margin call.';
+  } else {
+    // OK
+    badge.textContent = 'OK';
+    badge.style.background = '#0d3320'; badge.style.color = '#33ff99';
+    box.style.borderColor = '#2a3a4a';
+    surplusEl.textContent = '+' + fmt(surplus);
+    surplusEl.style.color = '#33ff99';
+    infoLine.style.display = 'none';
+  }
 }
 
 function updatePositionsDisplay() {
@@ -947,10 +1207,13 @@ function updateExecutionsDisplay() {
   empty.style.display = 'none';
   let html = '';
   for (const e of portfolio.executions.slice(0, 50)) {
-    html += `<tr>
+    const isLiq = e._liquidation || e.type === 'LIQUIDATION';
+    const rowStyle = isLiq ? ' style="background:rgba(255,0,0,0.15);"' : '';
+    const typeLabel = isLiq ? '<span style="color:#ff3333;font-weight:700;">LIQ</span>' : e.type;
+    html += `<tr${rowStyle}>
       <td>${e.time}</td>
-      <td class="${e.side === 'BUY' ? 'positive' : 'negative'}">${e.side}</td>
-      <td>${e.type}</td><td>${e.qty}</td>
+      <td class="${e.side === 'BUY' || e.side === 'BUY_TO_COVER' ? 'positive' : 'negative'}">${e.side}</td>
+      <td>${typeLabel}</td><td>${e.qty}</td>
       <td>$${e.fillPrice.toFixed(2)}</td>
       <td>$${e.value.toFixed(2)}</td>
     </tr>`;
@@ -997,6 +1260,99 @@ async function saveEndMetrics() {
   });
 }
 
+/* === MARGIN CALL BANNER & LIQUIDATION === */
+function showMarginCallBanner(show) {
+  const banner = document.getElementById('margin-call-banner');
+  if (banner) banner.style.display = show ? 'block' : 'none';
+  // Dim the BUY and SHORT buttons when in margin call
+  const btnSubmit = document.getElementById('btn-submit-order');
+  if (btnSubmit && show && OrderEngine.isOpeningOrder(currentSide)) {
+    btnSubmit.style.opacity = '0.4';
+    btnSubmit.style.pointerEvents = 'none';
+  } else if (btnSubmit && !show) {
+    btnSubmit.style.opacity = '1';
+    btnSubmit.style.pointerEvents = 'auto';
+  }
+}
+
+function updateMarginCallBanner() {
+  const countdown = document.getElementById('mc-countdown');
+  const progress = document.getElementById('mc-progress');
+  const msg = document.getElementById('mc-message');
+  if (!countdown || !progress) return;
+
+  const t = marginCallState.ticksRemaining;
+  const total = marginCallState.totalGraceTicks;
+
+  if (marginCallState.liquidationExecuted) {
+    countdown.textContent = 'LIQUIDATED';
+    progress.style.width = '100%';
+    progress.style.background = '#ff0000';
+    msg.textContent = 'Positions force-closed by broker';
+  } else {
+    countdown.textContent = t + ' ticks remaining';
+    const pct = total > 0 ? ((total - t) / total) * 100 : 100;
+    progress.style.width = pct + '%';
+    progress.style.background = pct > 70 ? '#ff0000' : '#ff9900';
+    msg.textContent = t <= 5 ? 'IMMINENT LIQUIDATION — Close positions NOW!' : 'Close positions to restore margin';
+  }
+}
+
+function executeForcedLiquidation(tick) {
+  const price = tick.close;
+  const liquidations = OrderEngine.generateLiquidationOrders(portfolio, price);
+
+  if (liquidations.length === 0) return;
+
+  showToast('FORCED LIQUIDATION — Broker is closing your positions!', 'error');
+
+  for (const liq of liquidations) {
+    const fillPrice = (liq.side === 'SELL' || liq.side === 'SHORT_SELL') ? tick.bid : tick.ask;
+    const fill = {
+      orderId: 'LIQUIDATION-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+      side: liq.side,
+      qty: liq.qty,
+      fillPrice: +fillPrice.toFixed(4),
+      value: +(fillPrice * liq.qty).toFixed(2),
+      commission: +OrderEngine.calcCommission(liq.qty).toFixed(2)
+    };
+
+    // Apply fill to portfolio
+    OrderEngine.applyFill(fill, portfolio);
+
+    // Record in executions list (same structure as regular fills)
+    portfolio.executions.unshift({
+      time: new Date().toLocaleTimeString(),
+      side: fill.side,
+      type: 'LIQUIDATION',
+      qty: fill.qty,
+      fillPrice: fill.fillPrice,
+      value: fill.value,
+      commission: fill.commission,
+      _liquidation: true
+    });
+
+    showToast(`LIQUIDATED: ${liq.side} ${liq.qty} @ ${fillPrice.toFixed(2)}`, 'error');
+  }
+
+  // Sync to DB
+  const prt = portfolio;
+  const p = lastTick ? lastTick.close : 100;
+  OrderEngine.updateParticipant(RoomManager.currentParticipant.id, {
+    cash: prt.cash,
+    shares: prt.shares,
+    avg_cost: prt.avgCost,
+    short_shares: prt.shortShares,
+    short_avg_cost: prt.shortAvgCost,
+    realized_pnl: prt.realizedPnl,
+    total_commissions: prt.totalCommissions,
+    accrued_interest: prt.accruedCashInterest
+  });
+
+  updateAccountDisplay();
+  updateOrdersDisplay();
+}
+
 /* === TOAST === */
 function showToast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
@@ -1005,6 +1361,101 @@ function showToast(msg, type = 'info') {
   el.textContent = msg;
   container.appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+/* === TA TOOLBAR FUNCTIONS === */
+function toggleDropdown(id) {
+  const dd = document.getElementById(id);
+  // Close all other dropdowns
+  document.querySelectorAll('.ta-dropdown').forEach(d => { if (d.id !== id) d.style.display = 'none'; });
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+// Close dropdowns when clicking elsewhere
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.ta-btn') && !e.target.closest('.ta-dropdown')) {
+    document.querySelectorAll('.ta-dropdown').forEach(d => d.style.display = 'none');
+  }
+});
+
+function addTA(type, params) {
+  document.querySelectorAll('.ta-dropdown').forEach(d => d.style.display = 'none');
+  TAEngine.addIndicator(type, params);
+  updateTAButtons();
+  showToast(TAEngine._getLabel({ type, params }) + ' added', 'info');
+}
+
+function startDraw(type) {
+  document.querySelectorAll('.ta-dropdown').forEach(d => d.style.display = 'none');
+  TAEngine.startDrawing(type);
+  const status = document.getElementById('draw-status');
+  const labels = { horzline: 'Click on chart to place horizontal line', trendline: 'Click 2 points for trend line', channel: 'Click 3 points for channel' };
+  status.textContent = labels[type] || 'Click on chart...';
+  status.style.display = 'inline';
+  // Escape key cancels
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      TAEngine.cancelDrawing();
+      status.style.display = 'none';
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+  // Auto-hide status after drawing completes
+  const checkDone = setInterval(() => {
+    if (!TAEngine.drawingMode) {
+      status.style.display = 'none';
+      clearInterval(checkDone);
+      document.removeEventListener('keydown', escHandler);
+    }
+  }, 200);
+}
+
+function updateTAButtons() {
+  const hasItems = TAEngine.indicators.length > 0 || TAEngine.drawings.length > 0;
+  document.getElementById('btn-active-ta').style.display = hasItems ? 'inline-block' : 'none';
+  document.getElementById('btn-clear-ta').style.display = hasItems ? 'inline-block' : 'none';
+}
+
+function showActiveTA() {
+  const inds = TAEngine.getActiveIndicators();
+  const draws = TAEngine.getActiveDrawings();
+  if (inds.length === 0 && draws.length === 0) { showToast('No active studies', 'info'); return; }
+
+  let html = '<div class="ta-modal-overlay" id="ta-modal-overlay" onclick="if(event.target===this)this.remove()">';
+  html += '<div class="ta-modal">';
+  html += '<h3>ACTIVE STUDIES</h3>';
+  for (const i of inds) {
+    html += '<div class="ta-modal-item"><span>' + i.label + '</span><button onclick="removeTA(\'' + i.id + '\')">&times;</button></div>';
+  }
+  for (const d of draws) {
+    html += '<div class="ta-modal-item"><span>' + d.label + '</span><button onclick="removeDraw(\'' + d.id + '\')">&times;</button></div>';
+  }
+  html += '<div style="margin-top:12px;text-align:right;"><button class="ta-btn" onclick="document.getElementById(\'ta-modal-overlay\').remove()">Close</button></div>';
+  html += '</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function removeTA(id) {
+  TAEngine.removeIndicator(id);
+  updateTAButtons();
+  const modal = document.getElementById('ta-modal-overlay');
+  if (modal) modal.remove();
+  showActiveTA();  // refresh
+}
+
+function removeDraw(id) {
+  TAEngine.removeDrawing(id);
+  updateTAButtons();
+  const modal = document.getElementById('ta-modal-overlay');
+  if (modal) modal.remove();
+  if (TAEngine.drawings.length > 0 || TAEngine.indicators.length > 0) showActiveTA();
+}
+
+function clearAllTA() {
+  TAEngine.clearAll();
+  updateTAButtons();
+  showToast('All studies cleared', 'info');
 }
 
 /* === RESIZER (from original) === */
