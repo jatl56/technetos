@@ -1509,6 +1509,28 @@ body.resizing-h {
             <div class="acct-item"><span class="acct-label">Short Mkt Val</span><span class="acct-value" id="acct-short-mktval">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Total Equity</span><span class="acct-value highlight" id="acct-equity">$100,000.00</span></div>
             <div class="acct-item"><span class="acct-label">Margin Used</span><span class="acct-value" id="acct-margin-used">$0.00</span></div>
+
+            <!-- Margin Status Box -->
+            <div id="margin-status-box" style="margin:6px 0; padding:6px 8px; border-radius:4px; border:1px solid #2a3a4a; background:#0d1117; font-size:10px; font-family:'Roboto Mono',monospace;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="color:#8899aa; letter-spacing:0.5px; font-size:9px;">MARGIN STATUS</span>
+                <span id="ms-status-badge" style="font-size:9px; font-weight:700; padding:1px 6px; border-radius:3px; background:#0d3320; color:#33ff99;">OK</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Maint. Required</span>
+                <span style="color:#ccddee;" id="ms-maint-req">$0.00</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Equity Ratio</span>
+                <span style="color:#ccddee;" id="ms-equity-ratio">--</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+                <span style="color:#667788;">Equity Surplus</span>
+                <span style="color:#33ff99;" id="ms-equity-surplus">--</span>
+              </div>
+              <div id="ms-info-line" style="display:none; margin-top:4px; padding:3px 6px; border-radius:3px; font-size:9px; line-height:1.4;"></div>
+            </div>
+
             <div class="acct-item"><span class="acct-label">Unrealized P&L</span><span class="acct-value" id="acct-unreal-pnl">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Realized P&L</span><span class="acct-value" id="acct-real-pnl">$0.00</span></div>
             <div class="acct-item"><span class="acct-label">Total P&L</span><span class="acct-value highlight" id="acct-total-pnl">$0.00</span></div>
@@ -3074,6 +3096,88 @@ function updateAccountDisplay() {
   document.getElementById('acct-commissions').textContent = '-' + fmt(portfolio.totalCommissions);
   document.getElementById('acct-interest-earned').textContent = '+' + fmt(portfolio.accruedCashInterest);
   document.getElementById('acct-margin-interest').textContent = '-' + fmt(portfolio.accruedMarginInterest);
+
+  // Update margin status box
+  updateMarginStatusBox(price, equity);
+}
+
+function updateMarginStatusBox(price, equity) {
+  const totalPos = (portfolio.shares * price) + (portfolio.shortShares * price);
+  const maintReq = OrderEngine.calcMaintenanceReq(portfolio, price);
+  const surplus = equity - maintReq;
+  const ratio = totalPos > 0 ? (equity / totalPos) : 0;
+  const maintPct = OrderEngine.sessionParams.maintenanceMargin;
+
+  const fmt = (v) => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+  // Status badge
+  const badge = document.getElementById('ms-status-badge');
+  const infoLine = document.getElementById('ms-info-line');
+  const surplusEl = document.getElementById('ms-equity-surplus');
+  const box = document.getElementById('margin-status-box');
+
+  if (!badge || !box) return;
+
+  document.getElementById('ms-maint-req').textContent = fmt(maintReq);
+
+  if (totalPos > 0) {
+    document.getElementById('ms-equity-ratio').textContent = (ratio * 100).toFixed(1) + '% (min ' + (maintPct * 100).toFixed(0) + '%)';
+  } else {
+    document.getElementById('ms-equity-ratio').textContent = 'No positions';
+  }
+
+  if (totalPos === 0) {
+    // No positions — all clear
+    badge.textContent = 'OK';
+    badge.style.background = '#0d3320'; badge.style.color = '#33ff99';
+    box.style.borderColor = '#2a3a4a';
+    surplusEl.textContent = '--';
+    surplusEl.style.color = '#33ff99';
+    infoLine.style.display = 'none';
+  } else if (marginCallState.liquidationExecuted) {
+    // Liquidated
+    badge.textContent = 'LIQUIDATED';
+    badge.style.background = '#4d0000'; badge.style.color = '#ff3333';
+    box.style.borderColor = '#ff3333';
+    surplusEl.textContent = (surplus >= 0 ? '+' : '-') + fmt(surplus);
+    surplusEl.style.color = '#ff3333';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a0000'; infoLine.style.color = '#ff6666';
+    infoLine.textContent = 'Positions were force-closed by the broker. You may resume trading.';
+  } else if (marginCallState.active) {
+    // Margin Call active
+    const t = marginCallState.ticksRemaining;
+    badge.textContent = 'MARGIN CALL';
+    badge.style.background = '#4d0000'; badge.style.color = '#ff3333';
+    box.style.borderColor = '#ff3333';
+    surplusEl.textContent = '-' + fmt(Math.abs(surplus));
+    surplusEl.style.color = '#ff3333';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a0000'; infoLine.style.color = '#ff9900';
+    if (t <= 5) {
+      infoLine.textContent = '\u26A0 IMMINENT LIQUIDATION in ' + t + ' ticks! Sell/cover positions immediately or they will be force-closed.';
+    } else {
+      infoLine.textContent = '\u26A0 Equity below maintenance margin. You have ' + t + ' ticks to close positions. New BUY/SHORT orders are blocked.';
+    }
+  } else if (ratio > 0 && ratio < maintPct * 1.5) {
+    // Warning — approaching margin call
+    badge.textContent = 'WARNING';
+    badge.style.background = '#332200'; badge.style.color = '#ffaa00';
+    box.style.borderColor = '#ff9900';
+    surplusEl.textContent = '+' + fmt(surplus);
+    surplusEl.style.color = '#ffaa00';
+    infoLine.style.display = 'block';
+    infoLine.style.background = '#1a1100'; infoLine.style.color = '#ffcc66';
+    infoLine.textContent = 'Approaching maintenance margin. Consider reducing positions to avoid a margin call.';
+  } else {
+    // OK
+    badge.textContent = 'OK';
+    badge.style.background = '#0d3320'; badge.style.color = '#33ff99';
+    box.style.borderColor = '#2a3a4a';
+    surplusEl.textContent = '+' + fmt(surplus);
+    surplusEl.style.color = '#33ff99';
+    infoLine.style.display = 'none';
+  }
 }
 
 function updatePositionsDisplay() {
