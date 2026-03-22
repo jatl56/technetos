@@ -2455,8 +2455,12 @@ const PriceEngine = {
       const basePrice = this._gbmStep();
       ohlc = this._realisticOHLC(basePrice, this.params.volatility, this.prevClose);
 
-      // Check pattern injection
-      if (this._shouldInjectPattern() && this.params.enabledPatterns.length > 0) {
+      // If a pattern was manually selected, launch it IMMEDIATELY
+      if (this.params.selectedPattern && this.params.selectedPattern !== 'random') {
+        this._startPattern();
+      }
+      // Otherwise check natural pattern injection timing
+      else if (this._shouldInjectPattern() && this.params.enabledPatterns.length > 0) {
         this._startPattern();
       }
     }
