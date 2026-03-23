@@ -1587,42 +1587,7 @@ body.resizing-h {
 
     <button class="btn-primary" id="btn-create-room" onclick="createRoom()" style="margin-top:16px;">CREATE SESSION</button>
 
-    <!-- Scenario Equivalence Table (professor only) -->
-    <div class="section-label" style="margin-top:16px;cursor:pointer;" onclick="document.getElementById('equiv-table').style.display = document.getElementById('equiv-table').style.display === 'none' ? 'block' : 'none'">
-      SCENARIO KEY <span style="font-size:8px;color:var(--text-muted);">(click to show/hide)</span>
-    </div>
-    <div id="equiv-table" style="display:none;max-height:180px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:var(--radius-md);padding:4px;">
-      <table class="history-table" style="font-size:10px;">
-        <thead><tr><th>Scenario Name</th><th>Real Ticker</th><th>Sector</th></tr></thead>
-        <tbody>
-          <tr><td>Quantum Corp</td><td style="color:var(--accent-orange);">AAPL</td><td>Tech</td></tr>
-          <tr><td>Echo Robotics</td><td style="color:var(--accent-orange);">AMD</td><td>Tech</td></tr>
-          <tr><td>Nexus Digital</td><td style="color:var(--accent-orange);">AMZN</td><td>Consumer</td></tr>
-          <tr><td>Sterling Motors</td><td style="color:var(--accent-orange);">BA</td><td>Industrial</td></tr>
-          <tr><td>Polaris Finance</td><td style="color:var(--accent-orange);">BAC</td><td>Banking</td></tr>
-          <tr><td style="color:var(--accent-cyan);">Cobalt Chain</td><td style="color:var(--accent-orange);">BTCUSD</td><td style="color:var(--accent-cyan);">Crypto</td></tr>
-          <tr><td>Vertex Energy</td><td style="color:var(--accent-orange);">CVX</td><td>Energy</td></tr>
-          <tr><td style="color:var(--accent-cyan);">Meridian Chain</td><td style="color:var(--accent-orange);">ETHUSD</td><td style="color:var(--accent-cyan);">Crypto</td></tr>
-          <tr><td>NovaTech</td><td style="color:var(--accent-orange);">GOOGL</td><td>Tech</td></tr>
-          <tr><td>Zenith Capital</td><td style="color:var(--accent-orange);">GS</td><td>Banking</td></tr>
-          <tr><td>Atlas Bio</td><td style="color:var(--accent-orange);">JNJ</td><td>Healthcare</td></tr>
-          <tr><td>Orion Holdings</td><td style="color:var(--accent-orange);">JPM</td><td>Banking</td></tr>
-          <tr><td>Pinnacle Foods</td><td style="color:var(--accent-orange);">KO</td><td>Consumer</td></tr>
-          <tr><td>Apex Industries</td><td style="color:var(--accent-orange);">MSFT</td><td>Tech</td></tr>
-          <tr><td>Titan Dynamics</td><td style="color:var(--accent-orange);">NVDA</td><td>Tech</td></tr>
-          <tr><td>Crescent Pharma</td><td style="color:var(--accent-orange);">PFE</td><td>Healthcare</td></tr>
-          <tr><td>Vanguard Index</td><td style="color:var(--accent-orange);">SPY</td><td>Index</td></tr>
-          <tr><td>Helix Motors</td><td style="color:var(--accent-orange);">TSLA</td><td>Volatile</td></tr>
-          <tr><td>Sapphire Mining</td><td style="color:var(--accent-orange);">XOM</td><td>Energy</td></tr>
-        </tbody>
-      </table>
-    </div>
 
-    <!-- History -->
-    <div class="section-label" style="margin-top:24px;">SESSION HISTORY</div>
-    <div id="history-container" style="max-height:200px;overflow-y:auto;">
-      <div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">Loading...</div>
-    </div>
   </div>
 </div>
 
@@ -3834,39 +3799,6 @@ async function showLobby() {
   document.getElementById('lobby-overlay').classList.remove('hidden');
   document.getElementById('lobby-user-email').textContent = Auth.currentUser.email;
   populateScenarios();  // ensure scenario dropdown is populated
-  loadHistory();
-}
-
-async function loadHistory() {
-  const cont = document.getElementById('history-container');
-  try {
-    const rooms = await RoomManager.getMasterRooms();
-    if (rooms.length === 0) {
-      cont.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">No sessions yet. Create your first one above.</div>';
-      return;
-    }
-    const visibleRooms = rooms.filter(r => r.status !== 'deleted');
-    if (visibleRooms.length === 0) {
-      cont.innerHTML = '<div style="color:var(--text-muted);font-size:10px;padding:12px;text-align:center;">No sessions yet. Create your first one above.</div>';
-      return;
-    }
-    let html = '<table class="history-table"><thead><tr><th>Name</th><th>Code</th><th>Ticker</th><th>Status</th><th>Students</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
-    for (const r of visibleRooms) {
-      const date = new Date(r.created_at).toLocaleDateString();
-      const studentCount = r.participants?.[0]?.count || 0;
-      const statusColor = r.status === 'active' ? 'var(--green)' : r.status === 'completed' ? 'var(--text-muted)' : 'var(--yellow)';
-      let actions = '';
-      if (r.status === 'active' || r.status === 'paused') {
-        actions += `<button onclick="closeSession('${r.id}')" style="font-size:8px;padding:2px 6px;background:var(--yellow);color:#000;border:none;border-radius:3px;cursor:pointer;margin-right:2px;">CLOSE</button>`;
-      }
-      actions += `<button onclick="deleteSession('${r.id}')" style="font-size:8px;padding:2px 6px;background:var(--red);color:#fff;border:none;border-radius:3px;cursor:pointer;">DEL</button>`;
-      html += `<tr><td>${r.name}</td><td style="color:var(--accent-orange);font-weight:700;letter-spacing:1px;">${r.code}</td><td>${r.ticker}</td><td style="color:${statusColor};text-transform:uppercase;font-weight:600;">${r.status}</td><td>${studentCount}</td><td>${date}</td><td>${actions}</td></tr>`;
-    }
-    html += '</tbody></table>';
-    cont.innerHTML = html;
-  } catch (e) {
-    cont.innerHTML = '<div style="color:var(--red);font-size:10px;padding:12px;">' + e.message + '</div>';
-  }
 }
 
 /* === CREATE ROOM === */
@@ -3958,7 +3890,6 @@ async function cancelSession() {
   RoomManager.currentRoom = null;
   document.getElementById('waiting-overlay').classList.add('hidden');
   document.getElementById('lobby-overlay').classList.remove('hidden');
-  loadHistory();
 }
 
 /* === START SIMULATION === */
@@ -4230,28 +4161,6 @@ function changeTicker(val) {
   }
 }
 
-/* === CLOSE/DELETE SESSION FROM HISTORY === */
-async function closeSession(roomId) {
-  try {
-    const sb = SupabaseConfig.getClient();
-    const { error } = await sb.from('rooms').update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', roomId);
-    if (error) throw error;
-    showToast('Session closed', 'info');
-    loadHistory();
-  } catch (e) { showToast('Close failed: ' + e.message, 'error'); }
-}
-async function deleteSession(roomId) {
-  if (!confirm('Delete this session permanently?')) return;
-  try {
-    const sb = SupabaseConfig.getClient();
-    // Mark as deleted (avoids RLS delete restrictions)
-    const { error } = await sb.from('rooms').update({ status: 'deleted', updated_at: new Date().toISOString() }).eq('id', roomId);
-    if (error) throw error;
-    showToast('Session deleted', 'info');
-    loadHistory();
-  } catch (e) { showToast('Delete failed: ' + e.message, 'error'); }
-}
-
 /* === DATA MODE & SCENARIO HELPERS === */
 function onDataModeChange(mode) {
   const scenarioSel = document.getElementById('lobby-scenario');
@@ -4337,13 +4246,17 @@ async function endSession() {
   isPlaying = false;
   clearTimeout(simInterval);
   RoomManager.broadcastControl('end');
-  await RoomManager.completeRoom();
+  // Mark as deleted so it disappears completely
+  try {
+    const sb = SupabaseConfig.getClient();
+    await sb.from('rooms').update({ status: 'deleted', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', RoomManager.currentRoom.id);
+  } catch (e) { /* fallback: at least complete it */ await RoomManager.completeRoom(); }
   RoomManager.unsubscribeAll();
+  RoomManager.currentRoom = null;
 
   document.getElementById('sim-container').classList.add('hidden');
   document.getElementById('lobby-overlay').classList.remove('hidden');
-  loadHistory();
-  showToast('Session ended.', 'info');
+  showToast('Session ended and removed.', 'info');
 }
 
 /* === LEADERBOARD UPDATE (periodic) === */
