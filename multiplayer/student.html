@@ -395,7 +395,7 @@
               <div id="draw-dropdown" class="ta-dropdown" style="display:none;">
                 <button onclick="startDraw('horzline')">&#x2500; Horizontal Line</button>
                 <button onclick="startDraw('trendline')">&#x2571; Trend Line</button>
-                <button onclick="startDraw('channel')">&#x25AF; Channel</button>
+                <button onclick="startDraw('horzray')">&#x2192; Horizontal Ray</button>
               </div>
             </div>
             <!-- Active list & clear -->
@@ -1410,7 +1410,7 @@ function startDraw(type) {
   document.querySelectorAll('.ta-dropdown').forEach(d => d.style.display = 'none');
   TAEngine.startDrawing(type);
   const status = document.getElementById('draw-status');
-  const labels = { horzline: 'Click on chart to place horizontal line', trendline: 'Click 2 points for trend line', channel: 'Click 3 points for channel' };
+  const labels = { horzline: 'Click on chart to place horizontal line', trendline: 'Click 2 points for trend line', horzray: 'Click on chart to place horizontal ray' };
   status.textContent = labels[type] || 'Click on chart...';
   status.style.display = 'inline';
   // Escape key cancels

@@ -15,7 +15,7 @@ const TAEngine = {
   drawings: [],
 
   // Drawing mode state
-  drawingMode: null,   // null | 'trendline' | 'horzline' | 'channel'
+  drawingMode: null,   // null | 'trendline' | 'horzline' | 'horzray'
   drawingPoints: [],
   _nextId: 1,
 
@@ -46,6 +46,23 @@ const TAEngine = {
     }
     // Update all active indicators
     this.updateAllIndicators();
+    // Extend drawings (trendline, horizontal ray) to new candle
+    this._extendDrawings(candle);
+  },
+
+  /** Extend active drawings to cover the new candle */
+  _extendDrawings(candle) {
+    for (const d of this.drawings) {
+      if (d.type === 'trendline' && d.series && d.p1 && d.p2) {
+        const slope = (d.p2.price - d.p1.price) / (d.p2.time - d.p1.time || 1);
+        const price = d.p1.price + slope * (candle.time - d.p1.time);
+        d.series.update({ time: candle.time, value: price });
+      } else if (d.type === 'horzray' && d.series) {
+        if (candle.time >= d.startTime) {
+          d.series.update({ time: candle.time, value: d.price });
+        }
+      }
+    }
   },
 
   /* ============================
@@ -422,14 +439,11 @@ const TAEngine = {
         }
         return true;  // waiting for second point
 
-      case 'channel':
-        if (this.drawingPoints.length === 3) {
-          this._addChannel(this.drawingPoints[0], this.drawingPoints[1], this.drawingPoints[2]);
-          this.drawingMode = null;
-          this.drawingPoints = [];
-          return true;
-        }
-        return true;  // waiting for more points
+      case 'horzray':
+        this._addHorizontalRay(price, time);
+        this.drawingMode = null;
+        this.drawingPoints = [];
+        return true;
     }
     return false;
   },
@@ -496,20 +510,41 @@ const TAEngine = {
     return id;
   },
 
-  /** Interpolate a line across the visible candle range */
+  /** Interpolate a trend line between two points, extending forward */
   _interpolateLine(p1, p2) {
     const data = [];
-    // Use existing candle times
     const times = this.candles.map(c => c.time);
     if (times.length < 2) return data;
 
     const slope = (p2.price - p1.price) / (p2.time - p1.time || 1);
 
+    // Only include points from p1 onward (not before)
     for (const t of times) {
+      if (t < p1.time) continue;
       const price = p1.price + slope * (t - p1.time);
       data.push({ time: t, value: price });
     }
     return data;
+  },
+
+  /** Add horizontal ray (from clicked point extending right) */
+  _addHorizontalRay(price, startTime) {
+    const id = 'draw-' + (this._nextId++);
+    const s = this.chart.addSeries(LightweightCharts.LineSeries, {
+      color: '#FF9800', lineWidth: 1, lineStyle: 2, // dashed
+      priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false, pointMarkersVisible: false
+    });
+    // Draw from startTime to the latest candle
+    const data = [];
+    for (const c of this.candles) {
+      if (c.time >= startTime) {
+        data.push({ time: c.time, value: price });
+      }
+    }
+    s.setData(data);
+    this.drawings.push({ id, type: 'horzray', series: s, price, startTime });
+    return id;
   },
 
   /** Remove a drawing */
@@ -522,10 +557,8 @@ const TAEngine = {
       try { this.candleSeries.removePriceLine(drawing.priceLine); } catch(e) {}
     } else if (drawing.type === 'trendline') {
       try { this.chart.removeSeries(drawing.series); } catch(e) {}
-    } else if (drawing.type === 'channel') {
-      for (const s of drawing.series) {
-        try { this.chart.removeSeries(s); } catch(e) {}
-      }
+    } else if (drawing.type === 'horzray') {
+      try { this.chart.removeSeries(drawing.series); } catch(e) {}
     }
     this.drawings.splice(idx, 1);
   },
