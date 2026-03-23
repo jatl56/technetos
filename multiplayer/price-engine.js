@@ -212,6 +212,7 @@ const PriceEngine = {
       high: raw.high,
       low: raw.low,
       close: raw.close,
+      volume: raw.volume,
       bid: raw.bid,
       ask: raw.ask,
       spread: raw.spread,

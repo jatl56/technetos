@@ -2671,6 +2671,7 @@ const PriceEngine = {
       high: raw.high,
       low: raw.low,
       close: raw.close,
+      volume: raw.volume,
       bid: raw.bid,
       ask: raw.ask,
       spread: raw.spread,
@@ -4028,6 +4029,7 @@ const TAEngine = {
 let authMode = 'signin';
 let chart = null;
 let candleSeries = null;
+let volumeSeries = null;
 let simInterval = null;
 let isPlaying = false;
 let speedMultiplier = 1;
@@ -4296,7 +4298,7 @@ function initChart() {
     crosshair: { mode: 0 },
     rightPriceScale: {
       borderColor: '#1e2836',
-      scaleMargins: { top: 0.05, bottom: 0.05 }
+      scaleMargins: { top: 0.05, bottom: 0.20 }  // leave 20% at bottom for volume
     },
     timeScale: { borderColor: '#1e2836', timeVisible: true, secondsVisible: false, rightOffset: 5 }
   });
@@ -4305,6 +4307,19 @@ function initChart() {
     upColor: '#00c853', downColor: '#ff3d57',
     borderUpColor: '#00c853', borderDownColor: '#ff3d57',
     wickUpColor: '#00c853', wickDownColor: '#ff3d57'
+  });
+
+  // Volume histogram overlay (bottom of main chart, TradingView style)
+  volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
+    priceFormat: { type: 'volume' },
+    priceLineVisible: false,
+    lastValueVisible: false,
+    priceScaleId: 'vol',
+  });
+  chart.priceScale('vol').applyOptions({
+    scaleMargins: { top: 0.85, bottom: 0 },  // volume uses bottom 15% of chart
+    borderVisible: false,
+    visible: false  // hide the volume price scale
   });
 
   // Resize
@@ -4348,6 +4363,14 @@ function startSimulation() {
     
     // Update chart
     candleSeries.update(candle);
+    // Update volume bars (color matches candle direction)
+    if (volumeSeries && candle.volume) {
+      volumeSeries.update({
+        time: candle.time,
+        value: candle.volume,
+        color: candle.close >= candle.open ? 'rgba(0,200,83,0.25)' : 'rgba(255,61,87,0.25)'
+      });
+    }
     TAEngine.pushCandle(candle);
     
     // Update top bar

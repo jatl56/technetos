@@ -3211,6 +3211,7 @@ const TAEngine = {
 let authMode = 'signin';
 let chart = null;
 let candleSeries = null;
+let volumeSeries = null;
 let currentSide = 'BUY';
 let currentOrderType = 'MARKET';
 let lastTick = null;
@@ -3457,7 +3458,7 @@ function initChart() {
       horzLines: { color: 'rgba(30, 40, 54, 0.5)' }
     },
     crosshair: { mode: 0 },
-    rightPriceScale: { borderColor: '#1e2836', scaleMargins: { top: 0.05, bottom: 0.05 } },
+    rightPriceScale: { borderColor: '#1e2836', scaleMargins: { top: 0.05, bottom: 0.20 } },
     timeScale: { borderColor: '#1e2836', timeVisible: true, secondsVisible: false, rightOffset: 5 }
   });
   // v5 API: addSeries(CandlestickSeries, options)
@@ -3466,6 +3467,20 @@ function initChart() {
     borderUpColor: '#00c853', borderDownColor: '#ff3d57',
     wickUpColor: '#00c853', wickDownColor: '#ff3d57'
   });
+
+  // Volume histogram overlay (bottom of main chart, TradingView style)
+  volumeSeries = chart.addSeries(LightweightCharts.HistogramSeries, {
+    priceFormat: { type: 'volume' },
+    priceLineVisible: false,
+    lastValueVisible: false,
+    priceScaleId: 'vol',
+  });
+  chart.priceScale('vol').applyOptions({
+    scaleMargins: { top: 0.85, bottom: 0 },
+    borderVisible: false,
+    visible: false
+  });
+
   new ResizeObserver(() => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
   }).observe(container);
@@ -3490,6 +3505,13 @@ function onPriceTick(tick) {
   
   // Update chart
   candleSeries.update(tick);
+  if (volumeSeries && tick.volume) {
+    volumeSeries.update({
+      time: tick.time,
+      value: tick.volume,
+      color: tick.close >= tick.open ? 'rgba(0,200,83,0.25)' : 'rgba(255,61,87,0.25)'
+    });
+  }
   TAEngine.pushCandle(tick);
   
   // Update top bar
