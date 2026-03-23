@@ -61,7 +61,10 @@
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-lg);
   padding: 32px;
-  width: 500px;
+  width: 780px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 .lobby-box h2 {
   font-size: 16px; color: var(--accent-orange); font-weight: 700;
@@ -281,7 +284,7 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">TICKER (display name)</label>
         <select id="lobby-ticker" class="input-field" style="margin-top:2px;">
@@ -290,16 +293,21 @@
           <option value="GOOGL">GOOGL</option><option value="NVDA">NVDA</option>
           <option value="META">META</option><option value="JPM">JPM</option>
           <option value="SPY">SPY</option><option value="QQQ">QQQ</option>
+          <option value="BTC">BTC</option><option value="ETH">ETH</option>
         </select>
       </div>
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">STARTING CASH</label>
         <input type="number" id="lobby-cash" value="100000" class="input-field" style="margin-top:2px;">
       </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">TICK SPEED (ms)</label>
+        <input type="number" id="lobby-tick-speed" value="600" step="100" min="200" max="3000" class="input-field" style="margin-top:2px;">
+      </div>
     </div>
 
     <div class="section-label" style="margin-top:12px;">MARGIN &amp; SHORT SELLING</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MAX LEVERAGE</label>
         <select id="lobby-leverage" class="input-field" style="margin-top:2px;">
@@ -316,8 +324,6 @@
           <option value="false">Disabled</option>
         </select>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MAINTENANCE MARGIN</label>
         <select id="lobby-maint-margin" class="input-field" style="margin-top:2px;">
@@ -327,11 +333,10 @@
           <option value="0.50">50%</option>
         </select>
       </div>
-      <div style="visibility:hidden;"></div>
     </div>
 
     <div class="section-label" style="margin-top:12px;">COMMISSIONS &amp; INTEREST</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">COMMISSION / SHARE</label>
         <input type="number" id="lobby-comm-share" value="0.005" step="0.001" min="0" class="input-field" style="margin-top:2px;">
@@ -340,23 +345,21 @@
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MIN COMMISSION</label>
         <input type="number" id="lobby-min-comm" value="1.00" step="0.50" min="0" class="input-field" style="margin-top:2px;">
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
       <div>
-        <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">CASH INT. RATE (annual)</label>
+        <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">CASH INT. RATE (annual %)</label>
         <input type="number" id="lobby-cash-rate" value="2.0" step="0.5" min="0" max="20" class="input-field" style="margin-top:2px;">
-        <span style="font-size:8px;color:var(--text-muted);">%</span>
       </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;">
       <div>
-        <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MARGIN INT. RATE (annual)</label>
+        <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MARGIN INT. RATE (annual %)</label>
         <input type="number" id="lobby-margin-rate" value="8.0" step="0.5" min="0" max="30" class="input-field" style="margin-top:2px;">
-        <span style="font-size:8px;color:var(--text-muted);">%</span>
       </div>
       <div>
         <label style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">MARGIN CALL GRACE (ticks)</label>
         <input type="number" id="lobby-mc-grace" value="30" step="5" min="5" max="120" class="input-field" style="margin-top:2px;">
-        <span style="font-size:8px;color:var(--text-muted);">ticks before liquidation</span>
       </div>
+      <div></div>
     </div>
 
     <button class="btn-primary" id="btn-create-room" onclick="createRoom()" style="margin-top:16px;">CREATE SESSION</button>
@@ -460,23 +463,6 @@
         <button class="speed-btn active" data-speed="1" onclick="setSpeed(1)">1x</button>
         <button class="speed-btn" data-speed="2" onclick="setSpeed(2)">2x</button>
       </div>
-      <div class="control-sep"></div>
-      <select id="pattern-select" class="pattern-inject-select" onchange="onPatternSelect(this.value)">
-        <option value="">-- Pattern --</option>
-        <option value="random">Random</option>
-        <option value="head_and_shoulders">Head &amp; Shoulders</option>
-        <option value="inv_head_and_shoulders">Inv. H&amp;S</option>
-        <option value="double_top">Double Top</option>
-        <option value="double_bottom">Double Bottom</option>
-        <option value="ascending_triangle">Asc. Triangle</option>
-        <option value="descending_triangle">Desc. Triangle</option>
-        <option value="bull_flag">Bull Flag</option>
-        <option value="bear_flag">Bear Flag</option>
-        <option value="cup_and_handle">Cup &amp; Handle</option>
-        <option value="rising_wedge">Rising Wedge</option>
-        <option value="falling_wedge">Falling Wedge</option>
-        <option value="symmetrical_triangle">Sym. Triangle</option>
-      </select>
       <div class="control-sep"></div>
       <button class="sim-control-btn" id="btn-play-pause" onclick="togglePlayPause()" title="Play/Pause">
         <svg id="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
@@ -1085,18 +1071,59 @@ function setSpeed(s) {
   }
 }
 
-/* === CHANGE TICKER (display name only, during simulation) === */
+/* === CHANGE TICKER — restarts with a new random scenario === */
 function changeTicker(val) {
+  // Update display name
   document.getElementById('chart-title').textContent = val;
   document.getElementById('ms-ticker').textContent = val;
   PriceEngine.params.ticker = val;
   RoomManager.broadcastParamChange({ ticker: val });
+
+  // If historical mode, restart with a new random scenario
+  if (PriceEngine.mode === 'historical') {
+    // Pause, clear chart, prepare new series
+    isPlaying = false;
+    clearTimeout(simInterval);
+
+    PriceEngine.reset({
+      ticker: val,
+      initialPrice: null,  // let historical engine pick
+      tickSpeedMs: PriceEngine.params.tickSpeedMs,
+      spreadBps: PriceEngine.params.spreadBps,
+      scenarioIndex: null  // random
+    });
+
+    // Clear chart data
+    candleSeries.setData([]);
+    if (volumeSeries) volumeSeries.setData([]);
+    TAEngine.clearAll();
+
+    // Update sidebar
+    const info = PriceEngine.getScenarioInfo();
+    document.getElementById('ms-scenario').textContent = info.scenarioName || 'Random';
+    document.getElementById('ms-remaining').textContent = info.remaining + ' candles';
+    document.getElementById('ms-price').textContent = '$' + PriceEngine.price.toFixed(2);
+    document.getElementById('ms-candles').textContent = '0';
+
+    // Update topbar initial price for change calculation
+    document.getElementById('ticker-price').textContent = PriceEngine.price.toFixed(2);
+    document.getElementById('ticker-change').textContent = '+0.00';
+    document.getElementById('ticker-pct').textContent = '(0.00%)';
+
+    // Broadcast reset to students
+    RoomManager.broadcastControl('reset');
+
+    // Resume
+    startSimulation();
+    showToast('New scenario: ' + info.scenarioName, 'info');
+  }
 }
 
 /* === CLOSE/DELETE SESSION FROM HISTORY === */
 async function closeSession(roomId) {
   try {
-    const { error } = await supabase.from('rooms').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', roomId);
+    const sb = SupabaseConfig.getClient();
+    const { error } = await sb.from('rooms').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', roomId);
     if (error) throw error;
     showToast('Session closed', 'info');
     loadHistory();
@@ -1105,8 +1132,9 @@ async function closeSession(roomId) {
 async function deleteSession(roomId) {
   if (!confirm('Delete this session permanently?')) return;
   try {
-    await supabase.from('participants').delete().eq('room_id', roomId);
-    await supabase.from('rooms').delete().eq('id', roomId);
+    const sb = SupabaseConfig.getClient();
+    await sb.from('participants').delete().eq('room_id', roomId);
+    await sb.from('rooms').delete().eq('id', roomId);
     showToast('Session deleted', 'info');
     loadHistory();
   } catch (e) { showToast(e.message, 'error'); }
