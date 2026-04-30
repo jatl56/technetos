@@ -9,7 +9,24 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE = __dirname;
+// BASE = the repo root. The script lives at the repo root by convention,
+// but if someone moves it under a subfolder (e.g. `src/`), detect that
+// by looking for the `multiplayer/` directory and walk up if needed.
+function findBase() {
+  let dir = __dirname;
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, 'multiplayer', 'order-engine.js'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fallback to script's own directory; will fail with a clear ENOENT later
+  return __dirname;
+}
+
+const BASE = findBase();
 const MULTI = path.join(BASE, 'multiplayer');
 
 function readMaybe(filePath) {

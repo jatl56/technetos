@@ -142,7 +142,10 @@ const RoomManager = {
       .eq('code', code.toUpperCase().trim())
       .single();
     if (roomErr || !room) throw new Error('Room not found. Check the code and try again.');
-    if (room.status === 'completed') throw new Error('This session has already ended.');
+    // Reject any terminal status. Soft-deleted sessions also count as gone.
+    if (room.status === 'completed' || room.status === 'deleted') {
+      throw new Error('This session has already ended.');
+    }
 
     this.currentRoom = room;
 
